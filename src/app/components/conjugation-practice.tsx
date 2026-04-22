@@ -240,7 +240,6 @@ export function ConjugationPractice({
     const newStreak = isCorrect ? streak + 1 : 0;
     setStreak(newStreak);
 
-    // Persist to Firestore if signed in
     if (user) {
       recordAnswer(user.uid, isCorrect, newStreak)
         .then((updates) => {
@@ -282,24 +281,30 @@ export function ConjugationPractice({
     if (userAnswer) handleAnswer(userAnswer);
   };
 
-  const getButtonClass = (option: string) => {
-    if (!isAnswered) return "secondary";
+  const getButtonBrandClass = (option: string): string => {
+    if (!isAnswered) {
+      return "bg-white text-[#0B1020] border border-gray-200 hover:border-[#1F4BFF] hover:text-[#1F4BFF] hover:bg-blue-50";
+    }
     const isCorrectAnswer = option === currentQuestion?.correctAnswer;
     const isUserChoice = option === userAnswer;
 
-    if (isCorrectAnswer) return "success";
-    if (isUserChoice && !isCorrectAnswer) return "destructive";
-
-    return "secondary";
+    if (isCorrectAnswer) {
+      return "bg-[#1F4BFF] text-white border-[#1F4BFF] hover:bg-[#1637CC] disabled:opacity-100";
+    }
+    if (isUserChoice && !isCorrectAnswer) {
+      return "bg-[#FF6A4D] text-white border-[#FF6A4D] hover:bg-[#D95A3F] disabled:opacity-100";
+    }
+    return "bg-white text-[#0B1020] border border-gray-200 opacity-50";
   };
 
   const getInputClass = () => {
-    if (!isAnswered) return "bg-white/80";
+    if (!isAnswered)
+      return "bg-[#FAFAF7] border-gray-200 focus-visible:ring-[#1F4BFF] focus-visible:border-[#0B1020]";
     if (feedback === "correct")
-      return "bg-green-200 border-green-500 focus-visible:ring-green-500";
+      return "bg-green-100 border-green-500 focus-visible:ring-green-500";
     if (feedback === "incorrect")
-      return "bg-red-200 border-red-500 focus-visible:ring-red-500";
-    return "bg-white/80";
+      return "bg-red-100 border-red-500 focus-visible:ring-red-500";
+    return "bg-[#FAFAF7]";
   };
 
   const displayPronoun =
@@ -313,7 +318,7 @@ export function ConjugationPractice({
         <Flame
           className={cn(
             "transition-colors",
-            streak > 0 ? "text-orange-400" : "text-white/50"
+            streak > 0 ? "text-[#FF6A4D]" : "text-white/50"
           )}
         />
         <span>{streak}</span>
@@ -322,21 +327,42 @@ export function ConjugationPractice({
         <Card
           key={key}
           className={cn(
-            "relative overflow-hidden transition-all duration-300 animate-in fade-in-0 zoom-in-95 bg-white/80 backdrop-blur-sm shadow-xl",
+            "relative overflow-hidden transition-all duration-300 animate-in fade-in-0 zoom-in-95 shadow-xl",
             feedback === "incorrect" && "animate-shake"
           )}
+          style={{
+            backgroundColor: "#FAFAF7",
+            border: "1px solid rgba(31,75,255,0.12)",
+          }}
         >
           <CardHeader>
-            <CardTitle className="text-3xl sm:text-4xl text-center font-bold text-gray-800">
+            <CardTitle
+              className="text-3xl sm:text-4xl text-center font-extrabold"
+              style={{
+                color: "#0B1020",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}
+            >
               {currentQuestion.verb}
             </CardTitle>
             <CardDescription className="text-center">
-              <Badge variant="secondary" className="bg-gray-200 text-gray-700">
+              <Badge
+                variant="secondary"
+                className="text-xs font-semibold"
+                style={{
+                  backgroundColor: "rgba(31,75,255,0.08)",
+                  color: "#1F4BFF",
+                }}
+              >
                 {currentQuestion.tense}
               </Badge>
               <Badge
                 variant="secondary"
-                className="ml-2 bg-gray-200 text-gray-700"
+                className="ml-2 text-xs font-semibold"
+                style={{
+                  backgroundColor: "rgba(31,75,255,0.08)",
+                  color: "#1F4BFF",
+                }}
               >
                 {displayPronoun}
               </Badge>
@@ -349,19 +375,11 @@ export function ConjugationPractice({
                   <div key={option}>
                     <Button
                       type="button"
-                      variant={getButtonClass(option)}
                       onClick={() => handleAnswer(option)}
                       disabled={isAnswered}
                       className={cn(
-                        "h-auto py-4 text-base sm:text-lg justify-center w-full text-center whitespace-normal shadow-md",
-                        {
-                          "hover:bg-green-600":
-                            getButtonClass(option) === "success",
-                          "hover:bg-red-700":
-                            getButtonClass(option) === "destructive",
-                          "bg-white text-gray-800 hover:bg-gray-100":
-                            getButtonClass(option) === "secondary",
-                        }
+                        "h-auto py-4 text-base sm:text-lg justify-center w-full text-center whitespace-normal shadow-sm",
+                        getButtonBrandClass(option)
                       )}
                     >
                       {option}
@@ -394,10 +412,7 @@ export function ConjugationPractice({
                   onChange={(e) => setUserAnswer(e.target.value)}
                   disabled={isAnswered}
                   placeholder="Type the conjugation..."
-                  className={cn(
-                    "text-center text-lg h-14",
-                    getInputClass()
-                  )}
+                  className={cn("text-center text-lg h-14", getInputClass())}
                   autoCapitalize="none"
                   autoComplete="off"
                   autoCorrect="off"
@@ -417,7 +432,7 @@ export function ConjugationPractice({
                 {!isAnswered && (
                   <Button
                     type="submit"
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                    className="w-full bg-[#1F4BFF] hover:bg-[#1637CC] text-white"
                   >
                     Check
                   </Button>
@@ -438,7 +453,7 @@ export function ConjugationPractice({
             {isAnswered && (
               <Button
                 onClick={prepareNextStage}
-                className="gap-2 animate-in fade-in-50 bg-blue-500 hover:bg-blue-600 text-white"
+                className="gap-2 animate-in fade-in-50 bg-[#1F4BFF] hover:bg-[#1637CC] text-white"
               >
                 Next <ArrowRight className="h-4 w-4" />
               </Button>
@@ -446,9 +461,17 @@ export function ConjugationPractice({
           </CardFooter>
         </Card>
       ) : (
-        <Card className="flex flex-col items-center justify-center p-12 text-center bg-white/80 backdrop-blur-sm shadow-xl">
-          <div className="h-16 w-16 border-4 border-dashed rounded-full animate-spin border-primary"></div>
-          <CardTitle className="mt-4">Loading Verbs...</CardTitle>
+        <Card
+          className="flex flex-col items-center justify-center p-12 text-center shadow-xl"
+          style={{
+            backgroundColor: "#FAFAF7",
+            border: "1px solid rgba(31,75,255,0.12)",
+          }}
+        >
+          <div className="h-16 w-16 border-4 border-dashed rounded-full animate-spin border-[#1F4BFF]"></div>
+          <CardTitle className="mt-4" style={{ color: "#0B1020" }}>
+            Loading Verbs...
+          </CardTitle>
           <CardDescription className="mt-2">
             Get ready to practice!
           </CardDescription>
