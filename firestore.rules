@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // User stats — users can read/write only their own data
+    match /users/{userId} {
+      // Anyone can read (needed for leaderboard)
+      allow read: if true;
+      
+      // Only the authenticated user can write their own doc
+      allow create, update: if request.auth != null 
+                            && request.auth.uid == userId;
+      
+      // Nobody can delete user data via client
+      allow delete: if false;
+    }
+  }
+}
