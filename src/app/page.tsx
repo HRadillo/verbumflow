@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import React, { useState, useEffect } from "react";
 import { initializeUserStats, type UserStats } from "@/lib/firestore";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Target } from "lucide-react";
+import { Calendar, Target, Heart } from "lucide-react";
 
 const gradients = [
   "from-pink-300 via-purple-300 to-indigo-400",
@@ -101,6 +101,15 @@ export default function Home() {
       <footer className="absolute bottom-4 text-center text-xs text-white/80 drop-shadow-sm">
         <p>&copy; {new Date().getFullYear()} Created by Horacio Radillo</p>
         <p>For educational purposes only.</p>
+        <a
+          href="https://www.paypal.com/paypalme/aurumstudio"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 mt-1 hover:text-white transition-colors"
+        >
+          <Heart className="h-3 w-3" />
+          Support this project
+        </a>
       </footer>
 
       {/* Leaderboard modal */}
