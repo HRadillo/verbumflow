@@ -105,10 +105,10 @@ export default function Home() {
           href="https://www.paypal.com/paypalme/aurumstudio"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 mt-1 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 mt-2 bg-white/80 text-gray-800 rounded-full px-4 py-1.5 text-xs shadow-md hover:scale-105 hover:bg-white transition-all"
         >
-          <Heart className="h-3 w-3" />
-          Support this project
+          <Heart className="h-3 w-3 text-rose-500" />
+          Donate
         </a>
       </footer>
 
