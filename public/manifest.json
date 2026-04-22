@@ -1,11 +1,11 @@
 {
-  "name": "Verbarium — French Conjugation Practice",
-  "short_name": "Verbarium",
+  "name": "VerbumFlow — French Conjugation Practice",
+  "short_name": "VerbumFlow",
   "description": "Master French verb conjugations with interactive flashcards",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#6366f1",
-  "theme_color": "#6366f1",
+  "background_color": "#0B1020",
+  "theme_color": "#0B1020",
   "orientation": "portrait-primary",
   "icons": [
     {

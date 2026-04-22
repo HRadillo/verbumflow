@@ -35,7 +35,7 @@ export function UserMenu({ onShowLeaderboard }: UserMenuProps) {
           onClick={onShowLeaderboard}
           variant="ghost"
           size="icon"
-          className="text-white hover:bg-white/20"
+          className="text-white hover:bg-white/10"
           title="Leaderboard"
         >
           <Trophy className="h-5 w-5" />
@@ -43,7 +43,7 @@ export function UserMenu({ onShowLeaderboard }: UserMenuProps) {
         <Button
           onClick={signInWithGoogle}
           variant="ghost"
-          className="text-white hover:bg-white/20 gap-2"
+          className="text-white hover:bg-white/10 gap-2"
         >
           <LogIn className="h-4 w-4" />
           <span className="hidden sm:inline">Sign in</span>
@@ -58,7 +58,7 @@ export function UserMenu({ onShowLeaderboard }: UserMenuProps) {
         onClick={onShowLeaderboard}
         variant="ghost"
         size="icon"
-        className="text-white hover:bg-white/20"
+        className="text-white hover:bg-white/10"
         title="Leaderboard"
       >
         <Trophy className="h-5 w-5" />
@@ -67,9 +67,9 @@ export function UserMenu({ onShowLeaderboard }: UserMenuProps) {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="relative h-10 w-10 rounded-full p-0 hover:bg-white/20"
+            className="relative h-10 w-10 rounded-full p-0 hover:bg-white/10"
           >
-            <Avatar className="h-9 w-9 border-2 border-white/50">
+            <Avatar className="h-9 w-9 border-2 border-white/30">
               <AvatarImage
                 src={user?.photoURL ?? undefined}
                 alt={user?.displayName ?? "User"}

@@ -57,7 +57,7 @@ function LeaderboardList({
           className={cn(
             "flex items-center gap-3 p-3 rounded-lg transition-colors",
             entry.uid === currentUid
-              ? "bg-blue-50 border border-blue-200"
+              ? "bg-[rgba(31,75,255,0.06)] border border-[#1F4BFF]"
               : "bg-gray-50 hover:bg-gray-100"
           )}
         >
@@ -87,7 +87,7 @@ function LeaderboardList({
             <p className="text-sm font-medium truncate">
               {entry.displayName}
               {entry.uid === currentUid && (
-                <Badge variant="secondary" className="ml-2 text-[10px] py-0">
+                <Badge className="ml-2 text-[10px] py-0 bg-[#1F4BFF] text-white hover:bg-[#1F4BFF]">
                   You
                 </Badge>
               )}
@@ -143,7 +143,7 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-yellow-500" />
+            <Trophy className="h-5 w-5 text-[#FF6A4D]" />
             Leaderboard
           </DialogTitle>
         </DialogHeader>
@@ -155,13 +155,13 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
         ) : (
           <Tabs defaultValue="streak">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="streak" className="text-xs gap-1">
+              <TabsTrigger value="streak" className="text-xs gap-1 data-[state=active]:text-[#1F4BFF]">
                 <Flame className="h-3 w-3" /> Best Streak
               </TabsTrigger>
-              <TabsTrigger value="correct" className="text-xs gap-1">
+              <TabsTrigger value="correct" className="text-xs gap-1 data-[state=active]:text-[#1F4BFF]">
                 <Target className="h-3 w-3" /> Total ✓
               </TabsTrigger>
-              <TabsTrigger value="daily" className="text-xs gap-1">
+              <TabsTrigger value="daily" className="text-xs gap-1 data-[state=active]:text-[#1F4BFF]">
                 <Calendar className="h-3 w-3" /> Daily
               </TabsTrigger>
             </TabsList>
