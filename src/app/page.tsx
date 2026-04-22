@@ -62,65 +62,64 @@ export default function Home() {
 
       <div className="w-full max-w-md">
         <header className="text-center mb-6">
-          {/* Brand mark + wordmark */}
-          <div className="flex items-center justify-center gap-3 mb-2">
+          {/* Brand mark — centered, standalone */}
+          <div className="flex justify-center mb-3">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 300 280"
-              className="h-10 sm:h-12 w-auto flex-shrink-0"
+              viewBox="0 0 220 200"
+              className="h-16 sm:h-20 w-auto"
               aria-hidden="true"
             >
-              <g transform="translate(40 40)">
-                <defs>
-                  <linearGradient
-                    id="vf-mark-header"
-                    x1="25"
-                    x2="185"
-                    y1="0"
-                    y2="0"
-                    gradientUnits="userSpaceOnUse"
-                  >
-                    <stop offset="50%" stopColor="#FF6A4D" />
-                    <stop offset="50%" stopColor="#1F4BFF" />
-                  </linearGradient>
-                </defs>
-                <path
-                  d="M40 50 L105 160 L170 50"
-                  fill="none"
-                  stroke="#FFFFFF"
-                  strokeWidth="22"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M25 100 Q70 70 105 100 T185 100"
-                  fill="none"
-                  stroke="url(#vf-mark-header)"
-                  strokeWidth="14"
-                  strokeLinecap="round"
-                />
-              </g>
+              <defs>
+                <linearGradient
+                  id="vf-mark-header"
+                  x1="25" x2="185" y1="0" y2="0"
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <stop offset="50%" stopColor="#FF6A4D" />
+                  <stop offset="50%" stopColor="#1F4BFF" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M40 50 L105 160 L170 50"
+                fill="none"
+                stroke="#FFFFFF"
+                strokeWidth="22"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M25 100 Q70 70 105 100 T185 100"
+                fill="none"
+                stroke="url(#vf-mark-header)"
+                strokeWidth="14"
+                strokeLinecap="round"
+              />
             </svg>
-            {/* Wordmark */}
+          </div>
+
+          {/* Wordmark — centered below the mark */}
+          <div className="flex justify-center mb-1">
             <span
-              className="text-4xl sm:text-5xl"
               style={{
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 letterSpacing: "-2px",
                 lineHeight: 1,
               }}
+              className="text-4xl sm:text-5xl"
             >
               <span className="font-bold text-white">verbum</span>
               <span style={{ fontWeight: 800, color: "#FF6A4D" }}>flow</span>
             </span>
           </div>
+
           {/* Tagline */}
           <p
             className="text-xs text-white uppercase"
             style={{
               fontFamily: "'JetBrains Mono', monospace",
               letterSpacing: "4px",
-              opacity: 0.6,
+              opacity: 0.5,
             }}
           >
             LEARN AND COMPETE

@@ -314,14 +314,24 @@ export function ConjugationPractice({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-center items-center gap-2 text-white font-bold text-xl drop-shadow-md">
-        <Flame
-          className={cn(
-            "transition-colors",
-            streak > 0 ? "text-[#FF6A4D]" : "text-white/50"
-          )}
-        />
-        <span>{streak}</span>
+      <div className="flex flex-col items-center justify-center gap-1 mb-1">
+        <div className="flex items-center gap-2 text-white font-bold text-xl drop-shadow-md">
+          <Flame
+            className={cn(
+              "transition-colors",
+              streak > 0 ? "text-[#FF6A4D]" : "text-white/30"
+            )}
+          />
+          <span>{streak}</span>
+        </div>
+        {user && (
+          <p
+            className="text-white/50 text-[10px] uppercase tracking-widest"
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            {streak === 0 ? "start your streak" : "keep it going"}
+          </p>
+        )}
       </div>
       {currentQuestion ? (
         <Card

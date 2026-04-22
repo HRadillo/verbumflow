@@ -23,6 +23,9 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/brand/icon/icon-blue-32.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/brand/icon/icon-blue-16.png" />
+        <link rel="shortcut icon" href="/brand/icon/icon-blue-32.png" />
       </head>
       <body className={cn("font-body antialiased h-full")}>
         <AuthProvider>
