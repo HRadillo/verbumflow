@@ -4,28 +4,63 @@
 import { ConjugationPractice } from "@/app/components/conjugation-practice";
 import { UserMenu } from "@/app/components/user-menu";
 import { Leaderboard } from "@/app/components/leaderboard";
+import { Onboarding } from "@/app/components/onboarding";
+import { Felicitations } from "@/app/components/felicitations";
 import { useAuth } from "@/contexts/auth-context";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { initializeUserStats, type UserStats } from "@/lib/firestore";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Target, Heart } from "lucide-react";
 
 export default function Home() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [felicitationsType, setFelicitationsType] = useState<
+    "personal" | "global" | null
+  >(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
+  // Manage onboarding visibility and user stats based on auth state
   useEffect(() => {
+    if (loading) return;
     if (user) {
+      // Signed in: set persistent flag, close onboarding, load stats
+      if (typeof window !== "undefined") {
+        localStorage.setItem("vf_onboarded", "1");
+      }
+      setShowOnboarding(false);
       initializeUserStats(
         user.uid,
         user.displayName ?? "Anonymous",
         user.photoURL
       ).then(setUserStats);
     } else {
+      // Guest: show onboarding every session (no localStorage flag)
       setUserStats(null);
+      const onboarded =
+        typeof window !== "undefined"
+          ? localStorage.getItem("vf_onboarded")
+          : null;
+      if (!onboarded) {
+        setShowOnboarding(true);
+      }
     }
-  }, [user]);
+  }, [user, loading]);
+
+  const handleStreakRecord = useCallback(
+    (type: "personal" | "global") => {
+      // Global record takes priority over personal
+      setFelicitationsType((prev) =>
+        prev === "global" ? "global" : type
+      );
+    },
+    []
+  );
+
+  const handleDismissFelicitations = useCallback(() => {
+    setFelicitationsType(null);
+  }, []);
 
   return (
     <main
@@ -37,7 +72,10 @@ export default function Home() {
     >
       {/* Top bar */}
       <div className="absolute top-4 right-4 z-10">
-        <UserMenu onShowLeaderboard={() => setShowLeaderboard(true)} />
+        <UserMenu
+          onShowLeaderboard={() => setShowLeaderboard(true)}
+          onShowOnboarding={() => setShowOnboarding(true)}
+        />
       </div>
 
       {/* User stats badges (signed-in only) */}
@@ -130,6 +168,7 @@ export default function Home() {
         <ConjugationPractice
           onNextQuestion={() => {}}
           onStatsUpdate={setUserStats}
+          onStreakRecord={handleStreakRecord}
         />
       </div>
 
@@ -149,6 +188,19 @@ export default function Home() {
 
       {/* Leaderboard modal */}
       <Leaderboard open={showLeaderboard} onOpenChange={setShowLeaderboard} />
+
+      {/* Onboarding overlay */}
+      {showOnboarding && (
+        <Onboarding onClose={() => setShowOnboarding(false)} />
+      )}
+
+      {/* Félicitations overlay */}
+      {felicitationsType && (
+        <Felicitations
+          type={felicitationsType}
+          onDismiss={handleDismissFelicitations}
+        />
+      )}
     </main>
   );
 }
