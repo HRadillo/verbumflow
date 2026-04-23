@@ -13,7 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Flame, Target, Calendar, Trophy, User } from "lucide-react";
+import { Flame, Target, Calendar, Trophy, User, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type LeaderboardProps = {
@@ -31,13 +31,11 @@ function LeaderboardList({
   entries,
   valueKey,
   icon: Icon,
-  label,
   currentUid,
 }: {
   entries: LeaderboardEntry[];
   valueKey: keyof LeaderboardEntry;
   icon: React.ElementType;
-  label: string;
   currentUid: string | null;
 }) {
   if (entries.length === 0) {
@@ -109,7 +107,8 @@ function LeaderboardList({
 
 export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
   const { user } = useAuth();
-  const [streakBoard, setStreakBoard] = useState<LeaderboardEntry[]>([]);
+  const [classicBoard, setClassicBoard] = useState<LeaderboardEntry[]>([]);
+  const [randomBoard, setRandomBoard] = useState<LeaderboardEntry[]>([]);
   const [correctBoard, setCorrectBoard] = useState<LeaderboardEntry[]>([]);
   const [dailyBoard, setDailyBoard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,12 +119,14 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const [streak, correct, daily] = await Promise.all([
-          getLeaderboard("longestStreak", 20),
+        const [classic, random, correct, daily] = await Promise.all([
+          getLeaderboard("classicLongestStreak", 20),
+          getLeaderboard("randomLongestStreak", 20),
           getLeaderboard("totalCorrect", 20),
           getLeaderboard("dailyStreak", 20),
         ]);
-        setStreakBoard(streak);
+        setClassicBoard(classic);
+        setRandomBoard(random);
         setCorrectBoard(correct);
         setDailyBoard(daily);
       } catch (error) {
@@ -153,25 +154,48 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
             <div className="h-8 w-8 border-4 border-dashed rounded-full animate-spin border-primary" />
           </div>
         ) : (
-          <Tabs defaultValue="streak">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="streak" className="text-xs gap-1 data-[state=active]:text-[#1F4BFF]">
-                <Flame className="h-3 w-3" /> Best Streak
+          <Tabs defaultValue="classic">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger
+                value="classic"
+                className="text-xs gap-1 data-[state=active]:text-[#1F4BFF]"
+              >
+                <Flame className="h-3 w-3" /> Classic
               </TabsTrigger>
-              <TabsTrigger value="correct" className="text-xs gap-1 data-[state=active]:text-[#1F4BFF]">
-                <Target className="h-3 w-3" /> Total ✓
+              <TabsTrigger
+                value="random"
+                className="text-xs gap-1 data-[state=active]:text-[#1F4BFF]"
+              >
+                <Shuffle className="h-3 w-3" /> Random
               </TabsTrigger>
-              <TabsTrigger value="daily" className="text-xs gap-1 data-[state=active]:text-[#1F4BFF]">
+              <TabsTrigger
+                value="correct"
+                className="text-xs gap-1 data-[state=active]:text-[#1F4BFF]"
+              >
+                <Target className="h-3 w-3" /> Total
+              </TabsTrigger>
+              <TabsTrigger
+                value="daily"
+                className="text-xs gap-1 data-[state=active]:text-[#1F4BFF]"
+              >
                 <Calendar className="h-3 w-3" /> Daily
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="streak">
+            <TabsContent value="classic">
               <LeaderboardList
-                entries={streakBoard}
-                valueKey="longestStreak"
+                entries={classicBoard}
+                valueKey="classicLongestStreak"
                 icon={Flame}
-                label="Best Streak"
+                currentUid={user?.uid ?? null}
+              />
+            </TabsContent>
+
+            <TabsContent value="random">
+              <LeaderboardList
+                entries={randomBoard}
+                valueKey="randomLongestStreak"
+                icon={Shuffle}
                 currentUid={user?.uid ?? null}
               />
             </TabsContent>
@@ -181,7 +205,6 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
                 entries={correctBoard}
                 valueKey="totalCorrect"
                 icon={Target}
-                label="Total Correct"
                 currentUid={user?.uid ?? null}
               />
             </TabsContent>
@@ -191,7 +214,6 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
                 entries={dailyBoard}
                 valueKey="dailyStreak"
                 icon={Calendar}
-                label="Day Streak"
                 currentUid={user?.uid ?? null}
               />
             </TabsContent>

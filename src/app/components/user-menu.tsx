@@ -13,13 +13,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogIn, LogOut, User, Trophy } from "lucide-react";
+import { LogIn, LogOut, User, Trophy, HelpCircle } from "lucide-react";
 
 type UserMenuProps = {
   onShowLeaderboard: () => void;
+  onShowOnboarding?: () => void;
 };
 
-export function UserMenu({ onShowLeaderboard }: UserMenuProps) {
+export function UserMenu({ onShowLeaderboard, onShowOnboarding }: UserMenuProps) {
   const { user, signInWithGoogle, signOut, isGuest, loading } = useAuth();
 
   if (loading) {
@@ -31,6 +32,17 @@ export function UserMenu({ onShowLeaderboard }: UserMenuProps) {
   if (isGuest) {
     return (
       <div className="flex gap-2">
+        {onShowOnboarding && (
+          <Button
+            onClick={onShowOnboarding}
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/10"
+            title="How to play"
+          >
+            <HelpCircle className="h-5 w-5" />
+          </Button>
+        )}
         <Button
           onClick={onShowLeaderboard}
           variant="ghost"
@@ -54,6 +66,17 @@ export function UserMenu({ onShowLeaderboard }: UserMenuProps) {
 
   return (
     <div className="flex gap-2">
+      {onShowOnboarding && (
+        <Button
+          onClick={onShowOnboarding}
+          variant="ghost"
+          size="icon"
+          className="text-white hover:bg-white/10"
+          title="How to play"
+        >
+          <HelpCircle className="h-5 w-5" />
+        </Button>
+      )}
       <Button
         onClick={onShowLeaderboard}
         variant="ghost"
@@ -94,6 +117,12 @@ export function UserMenu({ onShowLeaderboard }: UserMenuProps) {
             <Trophy className="mr-2 h-4 w-4" />
             Leaderboard
           </DropdownMenuItem>
+          {onShowOnboarding && (
+            <DropdownMenuItem onClick={onShowOnboarding}>
+              <HelpCircle className="mr-2 h-4 w-4" />
+              How to Play
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={signOut}>
             <LogOut className="mr-2 h-4 w-4" />
