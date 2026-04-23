@@ -31,6 +31,7 @@ import {
 
 type Feedback = "correct" | "incorrect" | null;
 type PracticeMode = "multiple-choice" | "fill-in-the-blank";
+type GameState = "idle" | "playing" | "lost";
 
 type Question = {
   verb: string;
@@ -95,6 +96,8 @@ export function ConjugationPractice({
   onStatsUpdate,
   onStreakRecord,
 }: ConjugationPracticeProps) {
+  const [gameState, setGameState] = useState<GameState>("idle");
+  const [lastStreakValue, setLastStreakValue] = useState(0);
   const [gameMode, setGameMode] = useState<GameMode>("classic");
   const [practiceQueue, setPracticeQueue] = useState<Question[]>([]);
   const [fillInTheBlankQueue, setFillInTheBlankQueue] = useState<Question[]>([]);
@@ -160,7 +163,6 @@ export function ConjugationPractice({
     []
   );
 
-  // Pick a random question for Random mode, avoiding recentPairs
   const pickRandomQuestion = useCallback((recentPairs: string[]): Question => {
     const available = allPossibleQuestions.filter(
       (q) => !recentPairs.includes(`${q.verb}|${q.pronoun}`)
@@ -169,7 +171,6 @@ export function ConjugationPractice({
     return pool[Math.floor(Math.random() * pool.length)];
   }, []);
 
-  // Pick next classic MC question, avoiding lastVerb
   const pickClassicQuestion = useCallback(
     (
       queue: Question[],
@@ -202,7 +203,6 @@ export function ConjugationPractice({
 
     if (gameMode === "random") {
       if (mode === "multiple-choice" && feedback === "correct" && currentQuestion) {
-        // Drill same verb/tense/pronoun as fill-in-blank
         setMode("fill-in-the-blank");
         const detail = getQuestionDetails(
           {
@@ -214,7 +214,6 @@ export function ConjugationPractice({
         );
         setCurrentQuestion(detail);
       } else {
-        // Next random question
         const trimmed = recentRandomPairs.slice(-4);
         const nextQ = pickRandomQuestion(trimmed);
         const pair = `${nextQ.verb}|${nextQ.pronoun}`;
@@ -258,7 +257,6 @@ export function ConjugationPractice({
       }
     }
 
-    // Default classic: pick next MC from queue
     setMode("multiple-choice");
     setFillInTheBlankQueue([]);
     const avoidVerb = currentQuestion?.verb ?? lastClassicVerb;
@@ -284,14 +282,13 @@ export function ConjugationPractice({
     practiceQueue,
   ]);
 
-  // Keep ref updated so auto-advance timeout always gets the latest version
   useEffect(() => {
     prepareNextStageRef.current = prepareNextStage;
   }, [prepareNextStage]);
 
-  // Initialize first question on mount
+  // Initialize first question — only when actively playing
   useEffect(() => {
-    if (currentQuestion !== null) return;
+    if (currentQuestion !== null || gameState !== "playing") return;
     if (gameMode === "classic") {
       const initialQueue = shuffleArray(allPossibleQuestions);
       const firstQ = initialQueue[0];
@@ -303,15 +300,15 @@ export function ConjugationPractice({
       setRecentRandomPairs([`${firstQ.verb}|${firstQ.pronoun}`]);
       setCurrentQuestion(getQuestionDetails(firstQ, "multiple-choice"));
     }
-  }, [currentQuestion, gameMode, getQuestionDetails, pickRandomQuestion]);
+  }, [currentQuestion, gameMode, gameState, getQuestionDetails, pickRandomQuestion]);
 
-  // Timer: reset and run on each new question, pause when answered
+  // Timer: reset and run on each new question, pause when answered or not playing
   useEffect(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    if (isAnswered || !currentQuestion) return;
+    if (isAnswered || !currentQuestion || gameState !== "playing") return;
 
     setTimeLeft(10);
     timerRef.current = setInterval(() => {
@@ -331,17 +328,19 @@ export function ConjugationPractice({
         timerRef.current = null;
       }
     };
-  }, [key, isAnswered, currentQuestion]);
+  }, [key, isAnswered, currentQuestion, gameState]);
 
-  // Handle time's up: runs when timeLeft hits 0
+  // Handle time's up: show loss overlay instead of auto-advancing
   useEffect(() => {
     if (timeLeft !== 0 || isAnswered || !currentQuestion) return;
 
     setIsAnswered(true);
     setFeedback("incorrect");
     setIsTimedOut(true);
+    setLastStreakValue(streak);
     setStreak(0);
     setFillInTheBlankQueue([]);
+    setGameState("lost");
 
     if (user) {
       recordAnswer(user.uid, false, 0, gameMode)
@@ -375,15 +374,6 @@ export function ConjugationPractice({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft]);
 
-  // Auto-advance after time's up (1.5s)
-  useEffect(() => {
-    if (!isTimedOut) return;
-    const id = setTimeout(() => {
-      prepareNextStageRef.current();
-    }, 1500);
-    return () => clearTimeout(id);
-  }, [isTimedOut]);
-
   // Focus fill-in-blank input
   useEffect(() => {
     if (mode === "fill-in-the-blank" && inputRef.current) {
@@ -397,6 +387,30 @@ export function ConjugationPractice({
     const id = setTimeout(() => setPendingModeSwitch(null), 3000);
     return () => clearTimeout(id);
   }, [pendingModeSwitch]);
+
+  const handleStartStreak = () => {
+    setCurrentQuestion(null);
+    setFeedback(null);
+    setIsAnswered(false);
+    setIsTimedOut(false);
+    setKey((k) => k + 1);
+    setGameState("playing");
+  };
+
+  const handleTryAgain = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setGameState("idle");
+    setStreak(0);
+    setCurrentQuestion(null);
+    setFeedback(null);
+    setIsAnswered(false);
+    setIsTimedOut(false);
+    setFillInTheBlankQueue([]);
+    setMode("multiple-choice");
+  };
 
   const handleSwitchMode = (newMode: GameMode) => {
     if (newMode === gameMode) {
@@ -415,6 +429,7 @@ export function ConjugationPractice({
       timerRef.current = null;
     }
     setGameMode(newMode);
+    setGameState("idle");
     setStreak(0);
     setFillInTheBlankQueue([]);
     setPracticeQueue([]);
@@ -424,7 +439,7 @@ export function ConjugationPractice({
     setIsAnswered(false);
     setIsTimedOut(false);
     setTimeLeft(10);
-    setCurrentQuestion(null); // triggers re-initialization effect
+    setCurrentQuestion(null);
     setKey((k) => k + 1);
   };
 
@@ -439,7 +454,14 @@ export function ConjugationPractice({
     setIsAnswered(true);
 
     const newStreak = isCorrect ? streak + 1 : 0;
-    setStreak(newStreak);
+
+    if (!isCorrect) {
+      setLastStreakValue(streak);
+      setStreak(0);
+      setGameState("lost");
+    } else {
+      setStreak(newStreak);
+    }
 
     if (user) {
       recordAnswer(user.uid, isCorrect, newStreak, gameMode)
@@ -543,7 +565,7 @@ export function ConjugationPractice({
             streak > 0 ? "text-[#FF6A4D]" : "text-white/50"
           )}
         />
-        <span>{streak}</span>
+        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{streak}</span>
       </div>
 
       {/* Game mode selector */}
@@ -578,199 +600,320 @@ export function ConjugationPractice({
       {pendingModeSwitch && (
         <p
           className="text-center text-xs font-medium"
-          style={{ color: "#FF6A4D", fontFamily: "'JetBrains Mono', monospace" }}
+          style={{ color: "#FF6A4D", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
         >
           ⚠️ Switching resets your streak. Click again to confirm.
         </p>
       )}
 
-      {currentQuestion ? (
-        <Card
-          key={key}
-          className={cn(
-            "relative overflow-hidden transition-all duration-300 animate-in fade-in-0 zoom-in-95 shadow-xl",
-            feedback === "incorrect" && !isTimedOut && "animate-shake"
-          )}
+      {/* START OVERLAY */}
+      {gameState === "idle" && (
+        <div
+          className="rounded-2xl shadow-xl p-8 text-center space-y-4 animate-in fade-in-0 zoom-in-95"
           style={{
             backgroundColor: "#FAFAF7",
             border: "1px solid rgba(31,75,255,0.12)",
           }}
         >
-          <CardHeader>
-            <CardTitle
-              className="text-3xl sm:text-4xl text-center font-extrabold"
-              style={{
-                color: "#0B1020",
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-              }}
-            >
-              {currentQuestion.verb}
-            </CardTitle>
-            <CardDescription className="text-center">
-              <Badge
-                variant="secondary"
-                className="text-xs font-semibold"
-                style={{
-                  backgroundColor: "rgba(31,75,255,0.08)",
-                  color: "#1F4BFF",
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-              >
-                {currentQuestion.tense}
-              </Badge>
-              <Badge
-                variant="secondary"
-                className="ml-2 text-xs font-semibold"
-                style={{
-                  backgroundColor: "rgba(31,75,255,0.08)",
-                  color: "#1F4BFF",
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-              >
-                {displayPronoun}
-              </Badge>
-            </CardDescription>
+          <div style={{ fontSize: "48px", lineHeight: 1 }}>
+            <Flame
+              className="inline-block"
+              style={{ color: "#FF6A4D", width: 48, height: 48 }}
+            />
+          </div>
+          <h2
+            className="text-2xl"
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontWeight: 800,
+              color: "#0B1020",
+            }}
+          >
+            Ready to streak?
+          </h2>
+          <p
+            className="text-sm"
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              color: "rgba(11,16,32,0.5)",
+            }}
+          >
+            Answer fast. Answer right. Don&apos;t stop.
+          </p>
+          <button
+            onClick={handleStartStreak}
+            className="w-full h-14 rounded-xl text-white font-bold text-base transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{
+              backgroundColor: "#1F4BFF",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontWeight: 700,
+            }}
+          >
+            Start Streak →
+          </button>
+        </div>
+      )}
 
-            {/* Timer bar */}
-            <div className="mt-2 h-1 w-full rounded-full bg-gray-100 overflow-hidden">
-              <div
-                style={{
-                  width: `${(timeLeft / 10) * 100}%`,
-                  backgroundColor: timeLeft <= 3 ? "#FF6A4D" : "#1F4BFF",
-                  height: "100%",
-                  transition: "width 1s linear, background-color 0.5s ease",
-                }}
-              />
-            </div>
-          </CardHeader>
+      {/* LOSS OVERLAY */}
+      {gameState === "lost" && (
+        <div
+          className="rounded-2xl shadow-xl p-8 text-center space-y-4 animate-in fade-in-0 zoom-in-95"
+          style={{
+            backgroundColor: "#FAFAF7",
+            border: "1px solid rgba(31,75,255,0.12)",
+          }}
+        >
+          <div style={{ fontSize: "48px", lineHeight: 1 }}>💥</div>
+          <h2
+            className="text-2xl"
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontWeight: 800,
+              color: "#0B1020",
+            }}
+          >
+            Streak broken.
+          </h2>
+          <p
+            className="text-sm"
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              color: "rgba(11,16,32,0.5)",
+            }}
+          >
+            {lastStreakValue > 0
+              ? `${lastStreakValue} in a row — not bad.`
+              : "You'll get it next time."}
+          </p>
+          <button
+            onClick={handleTryAgain}
+            className="w-full h-14 rounded-xl text-white font-bold text-base transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{
+              backgroundColor: "#FF6A4D",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontWeight: 700,
+            }}
+          >
+            Try Again →
+          </button>
+        </div>
+      )}
 
-          <CardContent className="space-y-4 pt-4">
-            {/* Time's up message */}
-            {isTimedOut && (
-              <div
-                className="text-center font-bold text-sm py-1"
-                style={{
-                  color: "#FF6A4D",
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-              >
-                ⏱ Time&apos;s up!
-              </div>
+      {/* GAME CARD */}
+      {gameState === "playing" && (
+        currentQuestion ? (
+          <Card
+            key={key}
+            className={cn(
+              "relative overflow-hidden transition-all duration-300 animate-in fade-in-0 zoom-in-95 shadow-xl",
+              feedback === "incorrect" && !isTimedOut && "animate-shake"
             )}
+            style={{
+              backgroundColor: "#FAFAF7",
+              border: "1px solid rgba(31,75,255,0.12)",
+            }}
+          >
+            <CardHeader>
+              <CardTitle
+                className="text-3xl sm:text-4xl text-center font-extrabold"
+                style={{
+                  color: "#0B1020",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}
+              >
+                {currentQuestion.verb}
+              </CardTitle>
+              <CardDescription className="text-center">
+                <Badge
+                  variant="secondary"
+                  className="text-xs font-semibold"
+                  style={{
+                    backgroundColor: "rgba(31,75,255,0.08)",
+                    color: "#1F4BFF",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  }}
+                >
+                  {currentQuestion.tense}
+                </Badge>
+                <Badge
+                  variant="secondary"
+                  className="ml-2 text-xs font-semibold"
+                  style={{
+                    backgroundColor: "rgba(31,75,255,0.08)",
+                    color: "#1F4BFF",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  }}
+                >
+                  {displayPronoun}
+                </Badge>
+              </CardDescription>
 
-            {mode === "multiple-choice" ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {currentQuestion.options?.map((option) => (
-                  <div key={option}>
-                    <Button
-                      type="button"
-                      onClick={() => handleAnswer(option)}
-                      disabled={isAnswered}
-                      className={cn(
-                        "h-auto py-4 text-base sm:text-lg justify-center w-full text-center whitespace-normal shadow-sm",
-                        getButtonBrandClass(option)
-                      )}
-                    >
-                      {option}
-                    </Button>
-                    {isAnswered &&
-                      option === currentQuestion.correctAnswer &&
-                      currentQuestion.rule && (
-                        <div className="text-xs text-muted-foreground mt-2 px-1 text-center sm:text-left">
-                          <p className="font-semibold">Rule:</p>
-                          <p>{currentQuestion.rule}</p>
-                        </div>
-                      )}
-                    {feedback === "incorrect" &&
-                      option === userAnswer &&
-                      currentQuestion.tip && (
-                        <div className="text-xs text-red-600 mt-2 px-1 text-center sm:text-left">
-                          <p className="font-semibold">Tip:</p>
-                          <p>{currentQuestion.tip}</p>
-                        </div>
-                      )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <form onSubmit={handleFormSubmit} className="space-y-4">
-                <Input
-                  ref={inputRef}
-                  type="text"
-                  value={userAnswer}
-                  onChange={(e) => setUserAnswer(e.target.value)}
-                  disabled={isAnswered}
-                  placeholder="Type the conjugation..."
-                  className={cn("text-center text-lg h-14", getInputClass())}
-                  autoCapitalize="none"
-                  autoComplete="off"
-                  autoCorrect="off"
+              {/* Timer bar */}
+              <div className="mt-2 h-1 w-full rounded-full bg-gray-100 overflow-hidden">
+                <div
+                  style={{
+                    width: `${(timeLeft / 10) * 100}%`,
+                    backgroundColor: timeLeft <= 3 ? "#FF6A4D" : "#1F4BFF",
+                    height: "100%",
+                    transition: "width 1s linear, background-color 0.5s ease",
+                  }}
                 />
-                {isAnswered && (
-                  <div className="text-xs text-muted-foreground mt-2 px-1 text-center">
-                    <p className="font-semibold">Rule:</p>
-                    <p>{currentQuestion.rule}</p>
-                  </div>
-                )}
-                {feedback === "incorrect" && (
-                  <div className="text-xs text-red-600 mt-2 px-1 text-center">
-                    <p className="font-semibold">Tip:</p>
-                    <p>{currentQuestion.tip}</p>
-                  </div>
-                )}
-                {!isAnswered && (
-                  <Button
-                    type="submit"
-                    className="w-full bg-[#1F4BFF] hover:bg-[#1637CC] text-white"
-                  >
-                    Check
-                  </Button>
-                )}
-              </form>
-            )}
-
-            {isAnswered && feedback === "incorrect" && !isTimedOut && (
-              <div className="text-sm text-muted-foreground pt-2 text-center">
-                Correct answer:{" "}
-                <span className="font-bold text-green-600">
-                  {currentQuestion.correctAnswer}
-                </span>
               </div>
-            )}
-            {isTimedOut && (
-              <div className="text-sm text-muted-foreground pt-2 text-center">
-                Correct answer:{" "}
-                <span className="font-bold text-green-600">
-                  {currentQuestion.correctAnswer}
-                </span>
-              </div>
-            )}
-          </CardContent>
+            </CardHeader>
 
-          <CardFooter className="flex justify-end gap-2">
-            {isAnswered && !isTimedOut && (
-              <Button
-                onClick={prepareNextStage}
-                className="gap-2 animate-in fade-in-50 bg-[#1F4BFF] hover:bg-[#1637CC] text-white"
-              >
-                Next <ArrowRight className="h-4 w-4" />
-              </Button>
-            )}
-          </CardFooter>
-        </Card>
-      ) : (
-        <Card
-          className="flex flex-col items-center justify-center p-12 text-center shadow-xl"
-          style={{
-            backgroundColor: "#FAFAF7",
-            border: "1px solid rgba(31,75,255,0.12)",
-          }}
-        >
-          <div className="h-16 w-16 border-4 border-dashed rounded-full animate-spin border-[#1F4BFF]"></div>
-          <CardTitle className="mt-4" style={{ color: "#0B1020" }}>
-            Loading Verbs...
-          </CardTitle>
-        </Card>
+            <CardContent className="space-y-4 pt-4">
+              {/* Time's up message */}
+              {isTimedOut && (
+                <div
+                  className="text-center font-bold text-sm py-1"
+                  style={{
+                    color: "#FF6A4D",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  }}
+                >
+                  ⏱ Time&apos;s up!
+                </div>
+              )}
+
+              {mode === "multiple-choice" ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {currentQuestion.options?.map((option) => (
+                    <div key={option}>
+                      <Button
+                        type="button"
+                        onClick={() => handleAnswer(option)}
+                        disabled={isAnswered}
+                        className={cn(
+                          "h-auto py-4 text-base sm:text-lg justify-center w-full text-center whitespace-normal shadow-sm",
+                          getButtonBrandClass(option)
+                        )}
+                        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                      >
+                        {option}
+                      </Button>
+                      {isAnswered &&
+                        option === currentQuestion.correctAnswer &&
+                        currentQuestion.rule && (
+                          <div
+                            className="text-xs text-muted-foreground mt-2 px-1 text-center sm:text-left"
+                            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                          >
+                            <p className="font-semibold">Rule:</p>
+                            <p>{currentQuestion.rule}</p>
+                          </div>
+                        )}
+                      {feedback === "incorrect" &&
+                        option === userAnswer &&
+                        currentQuestion.tip && (
+                          <div
+                            className="text-xs text-red-600 mt-2 px-1 text-center sm:text-left"
+                            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                          >
+                            <p className="font-semibold">Tip:</p>
+                            <p>{currentQuestion.tip}</p>
+                          </div>
+                        )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <form onSubmit={handleFormSubmit} className="space-y-4">
+                  <Input
+                    ref={inputRef}
+                    type="text"
+                    value={userAnswer}
+                    onChange={(e) => setUserAnswer(e.target.value)}
+                    disabled={isAnswered}
+                    placeholder="Type the conjugation..."
+                    className={cn("text-center text-lg h-14", getInputClass())}
+                    autoCapitalize="none"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  />
+                  {isAnswered && (
+                    <div
+                      className="text-xs text-muted-foreground mt-2 px-1 text-center"
+                      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                    >
+                      <p className="font-semibold">Rule:</p>
+                      <p>{currentQuestion.rule}</p>
+                    </div>
+                  )}
+                  {feedback === "incorrect" && (
+                    <div
+                      className="text-xs text-red-600 mt-2 px-1 text-center"
+                      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                    >
+                      <p className="font-semibold">Tip:</p>
+                      <p>{currentQuestion.tip}</p>
+                    </div>
+                  )}
+                  {!isAnswered && (
+                    <Button
+                      type="submit"
+                      className="w-full bg-[#1F4BFF] hover:bg-[#1637CC] text-white"
+                      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                    >
+                      Check
+                    </Button>
+                  )}
+                </form>
+              )}
+
+              {isAnswered && feedback === "incorrect" && !isTimedOut && (
+                <div
+                  className="text-sm text-muted-foreground pt-2 text-center"
+                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                >
+                  Correct answer:{" "}
+                  <span className="font-bold text-green-600">
+                    {currentQuestion.correctAnswer}
+                  </span>
+                </div>
+              )}
+              {isTimedOut && (
+                <div
+                  className="text-sm text-muted-foreground pt-2 text-center"
+                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                >
+                  Correct answer:{" "}
+                  <span className="font-bold text-green-600">
+                    {currentQuestion.correctAnswer}
+                  </span>
+                </div>
+              )}
+            </CardContent>
+
+            <CardFooter className="flex justify-end gap-2">
+              {isAnswered && !isTimedOut && feedback === "correct" && (
+                <Button
+                  onClick={prepareNextStage}
+                  className="gap-2 animate-in fade-in-50 bg-[#1F4BFF] hover:bg-[#1637CC] text-white"
+                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                >
+                  Next <ArrowRight className="h-4 w-4" />
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+        ) : (
+          <Card
+            className="flex flex-col items-center justify-center p-12 text-center shadow-xl"
+            style={{
+              backgroundColor: "#FAFAF7",
+              border: "1px solid rgba(31,75,255,0.12)",
+            }}
+          >
+            <div className="h-16 w-16 border-4 border-dashed rounded-full animate-spin border-[#1F4BFF]"></div>
+            <CardTitle
+              className="mt-4"
+              style={{ color: "#0B1020", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              Loading Verbs...
+            </CardTitle>
+          </Card>
+        )
       )}
     </div>
   );

@@ -36,11 +36,6 @@ const HOW_TO_PLAY = [
     title: "Daily Streak",
     desc: "Come back every day to build your daily streak. Consistency wins.",
   },
-  {
-    icon: "📱",
-    title: "Add to Home Screen",
-    desc: "Play like a native app — install VerbumFlow from your browser menu.",
-  },
 ];
 
 export function Onboarding({ onClose }: OnboardingProps) {
@@ -134,7 +129,10 @@ export function Onboarding({ onClose }: OnboardingProps) {
           >
             Compete for the top spot
           </h2>
-          <p className="text-sm text-gray-600">
+          <p
+            className="text-sm text-gray-600"
+            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+          >
             Sign in with Google to save your streak, appear on the leaderboard,
             and defend your record.
           </p>
@@ -143,7 +141,10 @@ export function Onboarding({ onClose }: OnboardingProps) {
             <Button
               onClick={handleSignIn}
               className="w-full gap-2 text-white font-semibold"
-              style={{ backgroundColor: "#1F4BFF" }}
+              style={{
+                backgroundColor: "#1F4BFF",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}
             >
               <LogIn className="h-4 w-4" />
               Sign in with Google
@@ -152,6 +153,7 @@ export function Onboarding({ onClose }: OnboardingProps) {
               onClick={onClose}
               variant="ghost"
               className="w-full gap-2 text-gray-600 hover:text-gray-900"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
             >
               Play as Guest
               <ArrowRight className="h-4 w-4" />
@@ -160,7 +162,7 @@ export function Onboarding({ onClose }: OnboardingProps) {
 
           <p
             className="text-xs text-gray-400"
-            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
             Guest streaks are not saved and won&apos;t appear on the
             leaderboard.
@@ -198,10 +200,111 @@ export function Onboarding({ onClose }: OnboardingProps) {
                   >
                     {item.title}
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">{item.desc}</p>
+                  <p
+                    className="text-xs text-gray-500 mt-0.5"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  >
+                    {item.desc}
+                  </p>
                 </div>
               </div>
             ))}
+
+            {/* Add to Home Screen — collapsible per platform */}
+            <div className="flex gap-3 items-start">
+              <span className="text-xl flex-shrink-0 mt-0.5">📱</span>
+              <div className="flex-1">
+                <p
+                  className="text-sm font-semibold"
+                  style={{
+                    color: "#0B1020",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  }}
+                >
+                  Add to Home Screen
+                </p>
+                <p
+                  className="text-xs text-gray-500 mt-0.5"
+                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                >
+                  Play like a native app — install VerbumFlow from your browser
+                  menu.
+                </p>
+
+                {/* iPhone instructions */}
+                <details className="mt-2 group">
+                  <summary
+                    className="text-xs font-semibold cursor-pointer select-none list-none flex items-center gap-1"
+                    style={{
+                      color: "#1F4BFF",
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    }}
+                  >
+                    <span className="group-open:hidden">+</span>
+                    <span className="hidden group-open:inline">−</span>
+                    &nbsp;iPhone (Safari)
+                  </summary>
+                  <ol
+                    className="mt-1.5 space-y-1 pl-3 border-l-2 border-blue-100"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  >
+                    <li className="text-xs text-gray-500">
+                      1. Tap the <strong>Share button</strong> (the box with an
+                      arrow pointing up ↑) at the bottom of your Safari browser.
+                    </li>
+                    <li className="text-xs text-gray-500">
+                      2. Scroll down in the share sheet and tap{" "}
+                      <strong>&quot;Add to Home Screen&quot;</strong>.
+                    </li>
+                    <li className="text-xs text-gray-500">
+                      3. Give it a name (or keep &quot;VerbumFlow&quot;) and tap{" "}
+                      <strong>&quot;Add&quot;</strong> in the top right corner.
+                    </li>
+                    <li className="text-xs text-gray-500">
+                      4. The app icon will appear on your home screen — open it
+                      for a full-screen, native-like experience.
+                    </li>
+                  </ol>
+                </details>
+
+                {/* Android instructions */}
+                <details className="mt-2 group">
+                  <summary
+                    className="text-xs font-semibold cursor-pointer select-none list-none flex items-center gap-1"
+                    style={{
+                      color: "#1F4BFF",
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    }}
+                  >
+                    <span className="group-open:hidden">+</span>
+                    <span className="hidden group-open:inline">−</span>
+                    &nbsp;Android (Chrome)
+                  </summary>
+                  <ol
+                    className="mt-1.5 space-y-1 pl-3 border-l-2 border-blue-100"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  >
+                    <li className="text-xs text-gray-500">
+                      1. Tap the <strong>three-dot menu (⋮)</strong> in the
+                      top-right corner of Chrome.
+                    </li>
+                    <li className="text-xs text-gray-500">
+                      2. Tap <strong>&quot;Add to Home Screen&quot;</strong> or{" "}
+                      <strong>&quot;Install app&quot;</strong> (the option name
+                      varies by Android version).
+                    </li>
+                    <li className="text-xs text-gray-500">
+                      3. Tap <strong>&quot;Add&quot;</strong> in the confirmation
+                      dialog.
+                    </li>
+                    <li className="text-xs text-gray-500">
+                      4. The VerbumFlow icon will appear on your home screen and
+                      open like a native app.
+                    </li>
+                  </ol>
+                </details>
+              </div>
+            </div>
           </div>
         </div>
       </div>
