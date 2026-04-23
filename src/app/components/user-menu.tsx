@@ -13,14 +13,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogIn, LogOut, User, Trophy, HelpCircle } from "lucide-react";
+import { LogIn, LogOut, User, Trophy, HelpCircle, House } from "lucide-react";
 
 type UserMenuProps = {
   onShowLeaderboard: () => void;
   onShowOnboarding?: () => void;
+  onBackToMenu?: () => void;
 };
 
-export function UserMenu({ onShowLeaderboard, onShowOnboarding }: UserMenuProps) {
+export function UserMenu({ onShowLeaderboard, onShowOnboarding, onBackToMenu }: UserMenuProps) {
   const { user, signInWithGoogle, signOut, isGuest, loading } = useAuth();
 
   if (loading) {
@@ -32,6 +33,17 @@ export function UserMenu({ onShowLeaderboard, onShowOnboarding }: UserMenuProps)
   if (isGuest) {
     return (
       <div className="flex gap-2">
+        {onBackToMenu && (
+          <Button
+            onClick={onBackToMenu}
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/10"
+            title="Back to menu"
+          >
+            <House className="h-5 w-5" />
+          </Button>
+        )}
         {onShowOnboarding && (
           <Button
             onClick={onShowOnboarding}
@@ -66,6 +78,17 @@ export function UserMenu({ onShowLeaderboard, onShowOnboarding }: UserMenuProps)
 
   return (
     <div className="flex gap-2">
+      {onBackToMenu && (
+        <Button
+          onClick={onBackToMenu}
+          variant="ghost"
+          size="icon"
+          className="text-white hover:bg-white/10"
+          title="Back to menu"
+        >
+          <House className="h-5 w-5" />
+        </Button>
+      )}
       {onShowOnboarding && (
         <Button
           onClick={onShowOnboarding}

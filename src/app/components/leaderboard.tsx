@@ -42,7 +42,12 @@ function LeaderboardList({
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
         <Trophy className="h-12 w-12 mb-4 opacity-40" />
-        <p className="text-sm">No scores yet. Be the first!</p>
+        <p
+          className="text-sm"
+          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+        >
+          No scores yet. Be the first!
+        </p>
       </div>
     );
   }
@@ -66,7 +71,10 @@ function LeaderboardList({
                 className={cn("h-5 w-5 mx-auto", podiumColors[index])}
               />
             ) : (
-              <span className="text-sm font-medium text-muted-foreground">
+              <span
+                className="text-sm font-medium text-muted-foreground"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+              >
                 {index + 1}
               </span>
             )}
@@ -82,7 +90,10 @@ function LeaderboardList({
 
           {/* Name */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
+            <p
+              className="text-sm font-medium truncate"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
               {entry.displayName}
               {entry.uid === currentUid && (
                 <Badge className="ml-2 text-[10px] py-0 bg-[#1F4BFF] text-white hover:bg-[#1F4BFF]">
@@ -95,7 +106,10 @@ function LeaderboardList({
           {/* Score */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <Icon className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-bold tabular-nums">
+            <span
+              className="text-sm font-bold tabular-nums"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
               {String(entry[valueKey])}
             </span>
           </div>
@@ -143,7 +157,10 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle
+            className="flex items-center gap-2"
+            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+          >
             <Trophy className="h-5 w-5 text-[#FF6A4D]" />
             Leaderboard
           </DialogTitle>
@@ -159,24 +176,32 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
               <TabsTrigger
                 value="classic"
                 className="text-xs gap-1 data-[state=active]:text-[#1F4BFF]"
+                title="Best Classic Streak — longest streak in Classic Mode (same verb, all pronouns)"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
                 <Flame className="h-3 w-3" /> Classic
               </TabsTrigger>
               <TabsTrigger
                 value="random"
                 className="text-xs gap-1 data-[state=active]:text-[#1F4BFF]"
+                title="Best Random Streak — longest streak in Random Mode (fully random verb + tense + pronoun)"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
                 <Shuffle className="h-3 w-3" /> Random
               </TabsTrigger>
               <TabsTrigger
                 value="correct"
                 className="text-xs gap-1 data-[state=active]:text-[#1F4BFF]"
+                title="Total Correct — all-time correct answers across both modes"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
-                <Target className="h-3 w-3" /> Total
+                <Target className="h-3 w-3" /> All-Time
               </TabsTrigger>
               <TabsTrigger
                 value="daily"
                 className="text-xs gap-1 data-[state=active]:text-[#1F4BFF]"
+                title="Daily Streak — consecutive days you've practiced"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
                 <Calendar className="h-3 w-3" /> Daily
               </TabsTrigger>
@@ -207,6 +232,13 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
                 icon={Target}
                 currentUid={user?.uid ?? null}
               />
+              <p
+                className="text-[10px] text-muted-foreground text-center mt-2 px-2"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+              >
+                Total correct answers across Classic + Random since account
+                creation
+              </p>
             </TabsContent>
 
             <TabsContent value="daily">

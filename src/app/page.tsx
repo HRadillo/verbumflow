@@ -9,8 +9,7 @@ import { Felicitations } from "@/app/components/felicitations";
 import { useAuth } from "@/contexts/auth-context";
 import { useState, useEffect, useCallback } from "react";
 import { initializeUserStats, type UserStats } from "@/lib/firestore";
-import { Badge } from "@/components/ui/badge";
-import { Calendar, Target, Heart } from "lucide-react";
+import { Heart } from "lucide-react";
 
 export default function Home() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -75,37 +74,51 @@ export default function Home() {
         <UserMenu
           onShowLeaderboard={() => setShowLeaderboard(true)}
           onShowOnboarding={() => setShowOnboarding(true)}
+          onBackToMenu={() => setShowOnboarding(true)}
         />
       </div>
 
       {/* User stats badges (signed-in only) */}
       {userStats && (
         <div className="absolute top-4 left-4 flex gap-2 z-10">
-          <Badge
-            variant="secondary"
-            className="bg-white/20 text-white border-white/30 gap-1"
+          {/* Daily streak */}
+          <div
+            title="Daily Streak — consecutive days you've practiced"
+            className="flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-full px-3 py-1 cursor-default"
           >
-            <Calendar className="h-3 w-3" />
-            {userStats.dailyStreak}d
-          </Badge>
-          <Badge
-            variant="secondary"
-            className="bg-white/20 text-white border-white/30 gap-1"
+            <span className="text-sm">📅</span>
+            <span
+              className="text-white text-xs font-semibold tabular-nums"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              {userStats.dailyStreak}d
+            </span>
+          </div>
+          {/* Total correct */}
+          <div
+            title="Total Correct — all-time correct answers"
+            className="flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-full px-3 py-1 cursor-default"
           >
-            <Target className="h-3 w-3" />
-            {userStats.totalCorrect}
-          </Badge>
+            <span className="text-sm">🎯</span>
+            <span
+              className="text-white text-xs font-semibold tabular-nums"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              {userStats.totalCorrect}
+            </span>
+          </div>
         </div>
       )}
 
       <div className="w-full max-w-md">
         <header className="text-center mb-6">
           {/* Brand mark + wordmark */}
-          <div className="flex items-center justify-center gap-3 mb-2">
+          <div className="flex items-end justify-center gap-3 mb-2">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 300 280"
+              viewBox="40 30 220 180"
               className="h-10 sm:h-12 w-auto flex-shrink-0"
+              style={{ marginBottom: "2px" }}
               aria-hidden="true"
             >
               <g transform="translate(40 40)">
