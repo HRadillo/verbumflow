@@ -95,6 +95,56 @@ for (const verb of allVerbs) {
   }
 }
 
+// Candidate keys per Classic cycle position (primary first, elision fallback for position 0)
+const CLASSIC_PRONOUN_CANDIDATE_KEYS: string[][] = [
+  ["je", "j'"],
+  ["tu"],
+  ["il/elle"],
+  ["nous"],
+  ["vous"],
+  ["ils/elles"],
+];
+
+const CLASSIC_DISPLAY_LABELS = [
+  "je",
+  "tu",
+  "il/elle/on",
+  "nous",
+  "vous",
+  "ils/elles",
+] as const;
+
+function getClassicPronounKey(
+  verb: string,
+  tense: string,
+  cycleIndex: number
+): string | null {
+  const candidates = CLASSIC_PRONOUN_CANDIDATE_KEYS[cycleIndex];
+  if (!candidates) return null;
+  for (const key of candidates) {
+    if (verbData[verb]?.[tense]?.[key] !== undefined) return key;
+  }
+  return null;
+}
+
+// Pre-filtered verb+tense pairs that have all 6 standard pronouns
+const classicVerbTensePairs: { verb: string; tense: string }[] = [];
+for (const verb of Object.keys(verbData)) {
+  for (const tense in verbData[verb]) {
+    const pKeys = Object.keys(verbData[verb][tense]);
+    if (
+      (pKeys.includes("je") || pKeys.includes("j'")) &&
+      pKeys.includes("tu") &&
+      pKeys.includes("il/elle") &&
+      pKeys.includes("nous") &&
+      pKeys.includes("vous") &&
+      pKeys.includes("ils/elles")
+    ) {
+      classicVerbTensePairs.push({ verb, tense });
+    }
+  }
+}
+
 export function ConjugationPractice({
   onNextQuestion,
   onStatsUpdate,
@@ -131,6 +181,10 @@ export function ConjugationPractice({
   // last correct answer — shown in loss overlay
   const [lastCorrectAnswer, setLastCorrectAnswer] = useState<string | null>(null);
   const [lossRuleHint, setLossRuleHint] = useState<string | null>(null);
+  const [classicCycleIndex, setClassicCycleIndex] = useState(0);
+  const [classicVerbTenseQueue, setClassicVerbTenseQueue] = useState<
+    { verb: string; tense: string }[]
+  >([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -213,6 +267,31 @@ export function ConjugationPractice({
     []
   );
 
+  const pickClassicVerbTensePair = useCallback(
+    (
+      queue: { verb: string; tense: string }[],
+      avoidVerb: string | null
+    ): {
+      pair: { verb: string; tense: string };
+      remainingQueue: { verb: string; tense: string }[];
+    } => {
+      const sourceQueue =
+        queue.length > 0 ? queue : shuffleArray(classicVerbTensePairs);
+      const idx =
+        avoidVerb !== null
+          ? sourceQueue.findIndex((p) => p.verb !== avoidVerb)
+          : 0;
+      const safeIdx = idx >= 0 ? idx : 0;
+      const pair = sourceQueue[safeIdx];
+      const remainingQueue = [
+        ...sourceQueue.slice(0, safeIdx),
+        ...sourceQueue.slice(safeIdx + 1),
+      ];
+      return { pair, remainingQueue };
+    },
+    []
+  );
+
   const prepareNextStage = useCallback(() => {
     setUserAnswer("");
     setFeedback(null);
@@ -232,14 +311,47 @@ export function ConjugationPractice({
         setCurrentQuestion(getQuestionDetails(nextQ, "multiple-choice"));
         setRecentRandomPairs([...trimmed, pair]);
       } else {
+        // Classic cycle
+        const nextIdx = classicCycleIndex + 1;
+        if (nextIdx < 6 && currentQuestion) {
+          const pronounKey = getClassicPronounKey(
+            currentQuestion.verb,
+            currentQuestion.tense,
+            nextIdx
+          );
+          if (pronounKey) {
+            setClassicCycleIndex(nextIdx);
+            setCurrentQuestion(
+              getQuestionDetails(
+                {
+                  verb: currentQuestion.verb,
+                  tense: currentQuestion.tense,
+                  pronoun: pronounKey,
+                },
+                "multiple-choice"
+              )
+            );
+            return;
+          }
+        }
+        // Cycle complete — pick new verb+tense
+        setClassicCycleIndex(0);
         const avoidVerb = currentQuestion?.verb ?? lastClassicVerb;
-        const { question: nextQ, remainingQueue } = pickClassicQuestion(
-          practiceQueue,
+        const { pair: nextPair, remainingQueue } = pickClassicVerbTensePair(
+          classicVerbTenseQueue,
           avoidVerb ?? null
         );
-        setLastClassicVerb(nextQ.verb);
-        setPracticeQueue(remainingQueue);
-        setCurrentQuestion(getQuestionDetails(nextQ, "multiple-choice"));
+        setLastClassicVerb(nextPair.verb);
+        setClassicVerbTenseQueue(remainingQueue);
+        const firstKey = getClassicPronounKey(nextPair.verb, nextPair.tense, 0);
+        if (firstKey) {
+          setCurrentQuestion(
+            getQuestionDetails(
+              { verb: nextPair.verb, tense: nextPair.tense, pronoun: firstKey },
+              "multiple-choice"
+            )
+          );
+        }
       }
       return;
     }
@@ -272,65 +384,67 @@ export function ConjugationPractice({
     }
 
     // ── Classic mode ──
-    if (!forceFillIn && mode === "fill-in-the-blank" && fillInTheBlankQueue.length > 0) {
-      const nextFillIn = fillInTheBlankQueue[0];
-      setCurrentQuestion(getQuestionDetails(nextFillIn, "fill-in-the-blank"));
-      setFillInTheBlankQueue((q) => q.slice(1));
-      return;
-    }
+    const nextMode = forceFillIn ? "fill-in-the-blank" : "multiple-choice";
+    setFillInTheBlankQueue([]);
 
-    if (
-      !forceFillIn &&
-      mode === "multiple-choice" &&
-      feedback === "correct" &&
-      currentQuestion
-    ) {
-      const { verb, tense } = currentQuestion;
-      const otherPronouns = Object.keys(verbData[verb][tense]).filter(
-        (p) => p !== currentQuestion.pronoun
+    const nextIdx = classicCycleIndex + 1;
+    if (nextIdx < 6 && currentQuestion) {
+      const pronounKey = getClassicPronounKey(
+        currentQuestion.verb,
+        currentQuestion.tense,
+        nextIdx
       );
-
-      if (otherPronouns.length > 0) {
-        const newFillInQueue = shuffleArray(otherPronouns).map((p) => ({
-          verb,
-          tense,
-          pronoun: p,
-        }));
-        setMode("fill-in-the-blank");
-        setFillInTheBlankQueue(newFillInQueue.slice(1));
+      if (pronounKey) {
+        setClassicCycleIndex(nextIdx);
+        setMode(nextMode);
         setCurrentQuestion(
-          getQuestionDetails(newFillInQueue[0], "fill-in-the-blank")
+          getQuestionDetails(
+            {
+              verb: currentQuestion.verb,
+              tense: currentQuestion.tense,
+              pronoun: pronounKey,
+            },
+            nextMode
+          )
         );
         return;
       }
     }
 
-    const nextMode = forceFillIn ? "fill-in-the-blank" : "multiple-choice";
+    // Cycle complete — pick new verb+tense
+    setClassicCycleIndex(0);
     setMode(nextMode);
-    setFillInTheBlankQueue([]);
     const avoidVerb = currentQuestion?.verb ?? lastClassicVerb;
-    const { question: nextQ, remainingQueue } = pickClassicQuestion(
-      practiceQueue,
+    const { pair: nextPair, remainingQueue } = pickClassicVerbTensePair(
+      classicVerbTenseQueue,
       avoidVerb ?? null
     );
-    setLastClassicVerb(nextQ.verb);
-    setPracticeQueue(remainingQueue);
-    setCurrentQuestion(getQuestionDetails(nextQ, nextMode));
+    setLastClassicVerb(nextPair.verb);
+    setClassicVerbTenseQueue(remainingQueue);
+    const firstKey = getClassicPronounKey(nextPair.verb, nextPair.tense, 0);
+    if (firstKey) {
+      setCurrentQuestion(
+        getQuestionDetails(
+          { verb: nextPair.verb, tense: nextPair.tense, pronoun: firstKey },
+          nextMode
+        )
+      );
+    }
   }, [
     feedback,
     onNextQuestion,
     getQuestionDetails,
     mode,
     currentQuestion,
-    fillInTheBlankQueue,
     gameMode,
     recentRandomPairs,
     pickRandomQuestion,
-    pickClassicQuestion,
     lastClassicVerb,
-    practiceQueue,
     hasShownLevelUp,
     practiceOnly,
+    classicCycleIndex,
+    classicVerbTenseQueue,
+    pickClassicVerbTensePair,
   ]);
 
   useEffect(() => {
@@ -341,11 +455,20 @@ export function ConjugationPractice({
   useEffect(() => {
     if (currentQuestion !== null || gameState !== "playing") return;
     if (gameMode === "classic") {
-      const initialQueue = shuffleArray(allPossibleQuestions);
-      const firstQ = initialQueue[0];
-      setPracticeQueue(initialQueue.slice(1));
-      setLastClassicVerb(firstQ.verb);
-      setCurrentQuestion(getQuestionDetails(firstQ, "multiple-choice"));
+      const initialQueue = shuffleArray(classicVerbTensePairs);
+      const firstPair = initialQueue[0];
+      const firstPronounKey = getClassicPronounKey(firstPair.verb, firstPair.tense, 0);
+      setClassicVerbTenseQueue(initialQueue.slice(1));
+      setLastClassicVerb(firstPair.verb);
+      setClassicCycleIndex(0);
+      if (firstPronounKey) {
+        setCurrentQuestion(
+          getQuestionDetails(
+            { verb: firstPair.verb, tense: firstPair.tense, pronoun: firstPronounKey },
+            "multiple-choice"
+          )
+        );
+      }
     } else {
       const firstQ = pickRandomQuestion([]);
       setRecentRandomPairs([`${firstQ.verb}|${firstQ.pronoun}`]);
@@ -407,22 +530,6 @@ export function ConjugationPractice({
         .catch((err) => console.error("Failed to record timeout:", err));
     }
 
-    if (gameMode === "classic" && currentQuestion) {
-      setPracticeQueue((q) => {
-        const failed = {
-          verb: currentQuestion.verb,
-          tense: currentQuestion.tense,
-          pronoun: currentQuestion.pronoun,
-        };
-        const insertIdx = Math.min(
-          q.length,
-          Math.floor(Math.random() * 5) + 3
-        );
-        const newQ = [...q];
-        newQ.splice(insertIdx, 0, failed);
-        return newQ;
-      });
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft]);
 
@@ -449,6 +556,8 @@ export function ConjugationPractice({
     setCorrectAnswerCount(0);
     setShowLevelUp(false);
     setHasShownLevelUp(false);
+    setClassicCycleIndex(0);
+    setClassicVerbTenseQueue([]);
     setGameState("playing");
   };
 
@@ -471,6 +580,8 @@ export function ConjugationPractice({
     setHasShownLevelUp(false);
     setLastCorrectAnswer(null);
     setLossRuleHint(null);
+    setClassicCycleIndex(0);
+    setClassicVerbTenseQueue([]);
   };
 
   const handleSwitchGameMode = (newMode: GameMode) => {
@@ -506,6 +617,8 @@ export function ConjugationPractice({
     setCorrectAnswerCount(0);
     setShowLevelUp(false);
     setHasShownLevelUp(false);
+    setClassicCycleIndex(0);
+    setClassicVerbTenseQueue([]);
   };
 
   const handleSwitchCompetitiveMode = (newCompetitive: boolean) => {
@@ -531,6 +644,8 @@ export function ConjugationPractice({
     setCorrectAnswerCount(0);
     setShowLevelUp(false);
     setHasShownLevelUp(false);
+    setClassicCycleIndex(0);
+    setClassicVerbTenseQueue([]);
   };
 
   const handleAnswer = (answer: string) => {
@@ -609,23 +724,6 @@ export function ConjugationPractice({
       if (mode === "fill-in-the-blank") {
         setFillInTheBlankQueue([]);
       }
-      if (gameMode === "classic" && currentQuestion) {
-        setPracticeQueue((currentQueue) => {
-          const failedQuestion = {
-            verb: currentQuestion.verb,
-            tense: currentQuestion.tense,
-            pronoun: currentQuestion.pronoun,
-          };
-          const remainingQueue = currentQueue;
-          const insertIndex = Math.min(
-            remainingQueue.length,
-            Math.floor(Math.random() * 5) + 3
-          );
-          const newQueue = [...remainingQueue];
-          newQueue.splice(insertIndex, 0, failedQuestion);
-          return newQueue;
-        });
-      }
     }
   };
 
@@ -684,10 +782,15 @@ export function ConjugationPractice({
     return "bg-[#FAFAF7]";
   };
 
-  const displayPronoun =
-    currentQuestion?.tense === "Impératif Présent"
-      ? `(${currentQuestion.pronoun})`
-      : currentQuestion?.pronoun;
+  const displayPronoun = (() => {
+    if (currentQuestion?.tense === "Impératif Présent") {
+      return `(${currentQuestion.pronoun})`;
+    }
+    if (gameMode === "classic") {
+      return CLASSIC_DISPLAY_LABELS[classicCycleIndex] ?? currentQuestion?.pronoun;
+    }
+    return currentQuestion?.pronoun;
+  })();
 
   // Determine which input mode to show (force multiple-choice in practiceOnly)
   const displayMode: PracticeMode = practiceOnly ? "multiple-choice" : mode;
