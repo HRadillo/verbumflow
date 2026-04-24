@@ -52,6 +52,10 @@ type ConjugationPracticeProps = {
   onStreakRecord?: (type: "personal" | "global") => void;
   practiceOnly?: boolean;
   userStats?: UserStats | null;
+  showHomeInterrupt?: boolean;
+  onHomeInterruptDismiss?: () => void;
+  onGoHome?: () => void;
+  onGameStateChange?: (state: GameState) => void;
 };
 
 const TIMER_DURATION = 15;
@@ -151,6 +155,10 @@ export function ConjugationPractice({
   onStreakRecord,
   practiceOnly = false,
   userStats = null,
+  showHomeInterrupt = false,
+  onHomeInterruptDismiss,
+  onGoHome,
+  onGameStateChange,
 }: ConjugationPracticeProps) {
   const [gameState, setGameState] = useState<GameState>(
     practiceOnly ? "playing" : "idle"
@@ -190,7 +198,7 @@ export function ConjugationPractice({
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const prepareNextStageRef = useRef<() => void>(() => {});
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
 
   const timerEnabled = !practiceOnly && competitiveMode;
 
@@ -294,11 +302,12 @@ export function ConjugationPractice({
   );
 
   const prepareNextStage = useCallback(() => {
+    // Reset answer state BEFORE generating the next question so the
+    // new question always renders with cleared highlights in the same batch.
     setUserAnswer("");
     setFeedback(null);
     setIsAnswered(false);
     setIsTimedOut(false);
-    setKey((prev) => prev + 1);
     onNextQuestion();
 
     // practiceOnly: always multiple-choice, no fill-in drills
@@ -311,6 +320,7 @@ export function ConjugationPractice({
         const pair = `${nextQ.verb}|${nextQ.pronoun}`;
         setCurrentQuestion(getQuestionDetails(nextQ, "multiple-choice"));
         setRecentRandomPairs([...trimmed, pair]);
+        setKey((prev) => prev + 1);
       } else {
         // Classic cycle
         const nextIdx = classicCycleIndex + 1;
@@ -332,6 +342,7 @@ export function ConjugationPractice({
                 "multiple-choice"
               )
             );
+            setKey((prev) => prev + 1);
             return;
           }
         }
@@ -352,6 +363,7 @@ export function ConjugationPractice({
               "multiple-choice"
             )
           );
+          setKey((prev) => prev + 1);
         }
       }
       return;
@@ -380,6 +392,7 @@ export function ConjugationPractice({
           "fill-in-the-blank"
         );
         setCurrentQuestion(detail);
+        setKey((prev) => prev + 1);
       } else {
         const trimmed = recentRandomPairs.slice(-4);
         const nextQ = pickRandomQuestion(trimmed);
@@ -388,6 +401,7 @@ export function ConjugationPractice({
         setMode(nextMode);
         setCurrentQuestion(getQuestionDetails(nextQ, nextMode));
         setRecentRandomPairs([...trimmed, pair]);
+        setKey((prev) => prev + 1);
       }
       return;
     }
@@ -416,6 +430,7 @@ export function ConjugationPractice({
             nextMode
           )
         );
+        setKey((prev) => prev + 1);
         return;
       }
     }
@@ -438,6 +453,7 @@ export function ConjugationPractice({
           nextMode
         )
       );
+      setKey((prev) => prev + 1);
     }
   }, [
     feedback,
@@ -662,6 +678,16 @@ export function ConjugationPractice({
     setClassicVerbTenseQueue([]);
   };
 
+  // Report game state changes to parent
+  useEffect(() => {
+    onGameStateChange?.(gameState);
+  }, [gameState, onGameStateChange]);
+
+  const handleGoHome = () => {
+    handleTryAgain();
+    onGoHome?.();
+  };
+
   const handleAnswer = (answer: string) => {
     if (isAnswered) return;
 
@@ -755,6 +781,9 @@ export function ConjugationPractice({
 
   // Handler for Next in practiceOnly wrong answer
   const handlePracticeOnlyNext = () => {
+    setUserAnswer("");
+    setFeedback(null);
+    setIsAnswered(false);
     setFillInTheBlankQueue([]);
     prepareNextStageRef.current();
   };
@@ -958,15 +987,6 @@ export function ConjugationPractice({
           >
             Start Streak →
           </button>
-          {user && !authLoading && (
-            <button
-              onClick={handleStartStreak}
-              className="w-full rounded-full border py-3 text-sm font-semibold"
-              style={{ borderColor: '#1F4BFF', color: '#1F4BFF' }}
-            >
-              Jump back in →
-            </button>
-          )}
           {userStats && (
             <div className="flex justify-center gap-3 mt-3">
               <div
@@ -1068,8 +1088,61 @@ export function ConjugationPractice({
         </div>
       )}
 
+      {/* HOME INTERRUPT OVERLAY — signed-in users only, during play */}
+      {!practiceOnly && showHomeInterrupt && gameState === "playing" && (
+        <div
+          className="rounded-2xl shadow-xl p-8 text-center space-y-4 animate-in fade-in-0 zoom-in-95"
+          style={{
+            backgroundColor: "#FAFAF7",
+            border: "1px solid rgba(31,75,255,0.12)",
+          }}
+        >
+          <h2
+            className="text-2xl"
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontWeight: 800,
+              color: "#0B1020",
+            }}
+          >
+            Taking a break?
+          </h2>
+          <p
+            className="text-sm"
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              color: "rgba(11,16,32,0.6)",
+            }}
+          >
+            Your streak is waiting.
+          </p>
+          <button
+            onClick={onHomeInterruptDismiss}
+            className="w-full h-14 rounded-xl text-white font-bold text-base transition-all hover:opacity-90 active:scale-[0.98]"
+            style={{
+              backgroundColor: "#1F4BFF",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontWeight: 700,
+            }}
+          >
+            Jump Back In →
+          </button>
+          <button
+            onClick={handleGoHome}
+            className="w-full h-12 rounded-xl font-semibold text-base border-2 transition-all hover:bg-[#1F4BFF]/5 active:scale-[0.98]"
+            style={{
+              borderColor: "#1F4BFF",
+              color: "#1F4BFF",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+            }}
+          >
+            Go Home
+          </button>
+        </div>
+      )}
+
       {/* GAME CARD */}
-      {(practiceOnly || gameState === "playing") && (
+      {(practiceOnly || gameState === "playing") && !showHomeInterrupt && (
         currentQuestion ? (
           <Card
             key={key}
