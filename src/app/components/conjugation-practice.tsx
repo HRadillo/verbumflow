@@ -190,7 +190,7 @@ export function ConjugationPractice({
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const prepareNextStageRef = useRef<() => void>(() => {});
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const timerEnabled = !practiceOnly && competitiveMode;
 
@@ -958,6 +958,15 @@ export function ConjugationPractice({
           >
             Start Streak →
           </button>
+          {user && !authLoading && (
+            <button
+              onClick={handleStartStreak}
+              className="w-full rounded-full border py-3 text-sm font-semibold"
+              style={{ borderColor: '#1F4BFF', color: '#1F4BFF' }}
+            >
+              Jump back in →
+            </button>
+          )}
           {userStats && (
             <div className="flex justify-center gap-3 mt-3">
               <div
