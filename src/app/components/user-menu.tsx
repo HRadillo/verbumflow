@@ -13,15 +13,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogIn, LogOut, User, Trophy, HelpCircle, House } from "lucide-react";
+import { LogIn, LogOut, User, Trophy, HelpCircle, House, BookOpen, Share2 } from "lucide-react";
 
 type UserMenuProps = {
   onShowLeaderboard: () => void;
   onShowOnboarding?: () => void;
   onBackToMenu?: () => void;
+  onOpenStudy?: () => void;
 };
 
-export function UserMenu({ onShowLeaderboard, onShowOnboarding, onBackToMenu }: UserMenuProps) {
+const handleChallengeFriend = () => {
+  const message = encodeURIComponent(
+    "Hey! I challenge you to beat my streak on VerbumFlow — a French verb conjugation game. Think you can keep up? 👊\n\nhttps://verbumflowapp.web.app"
+  );
+  window.open(`https://wa.me/?text=${message}`, "_blank");
+};
+
+export function UserMenu({ onShowLeaderboard, onShowOnboarding, onBackToMenu, onOpenStudy }: UserMenuProps) {
   const { user, signInWithGoogle, signOut, isGuest, loading } = useAuth();
 
   if (loading) {
@@ -44,6 +52,26 @@ export function UserMenu({ onShowLeaderboard, onShowOnboarding, onBackToMenu }: 
             <House className="h-5 w-5" />
           </Button>
         )}
+        {onOpenStudy && (
+          <Button
+            onClick={onOpenStudy}
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/10"
+            title="Study Mode"
+          >
+            <BookOpen className="h-5 w-5" />
+          </Button>
+        )}
+        <Button
+          onClick={handleChallengeFriend}
+          variant="ghost"
+          size="icon"
+          className="text-white hover:bg-white/10"
+          title="Challenge a friend"
+        >
+          <Share2 className="h-5 w-5" />
+        </Button>
         {onShowOnboarding && (
           <Button
             onClick={onShowOnboarding}
@@ -89,6 +117,26 @@ export function UserMenu({ onShowLeaderboard, onShowOnboarding, onBackToMenu }: 
           <House className="h-5 w-5" />
         </Button>
       )}
+      {onOpenStudy && (
+        <Button
+          onClick={onOpenStudy}
+          variant="ghost"
+          size="icon"
+          className="text-white hover:bg-white/10"
+          title="Study Mode"
+        >
+          <BookOpen className="h-5 w-5" />
+        </Button>
+      )}
+      <Button
+        onClick={handleChallengeFriend}
+        variant="ghost"
+        size="icon"
+        className="text-white hover:bg-white/10"
+        title="Challenge a friend"
+      >
+        <Share2 className="h-5 w-5" />
+      </Button>
       {onShowOnboarding && (
         <Button
           onClick={onShowOnboarding}

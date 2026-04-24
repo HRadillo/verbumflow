@@ -8,6 +8,7 @@ import { LogIn, ArrowRight } from "lucide-react";
 
 type OnboardingProps = {
   onClose: () => void;
+  onOpenStudy?: () => void;
 };
 
 const HOW_TO_PLAY = [
@@ -38,7 +39,7 @@ const HOW_TO_PLAY = [
   },
 ];
 
-export function Onboarding({ onClose }: OnboardingProps) {
+export function Onboarding({ onClose, onOpenStudy }: OnboardingProps) {
   const { signInWithGoogle } = useAuth();
 
   const handleSignIn = async () => {
@@ -158,6 +159,16 @@ export function Onboarding({ onClose }: OnboardingProps) {
               Play as Guest
               <ArrowRight className="h-4 w-4" />
             </Button>
+            {onOpenStudy && (
+              <Button
+                onClick={() => { onClose(); onOpenStudy(); }}
+                variant="outline"
+                className="w-full gap-2 font-semibold text-gray-700 border-gray-300 hover:border-[#1F4BFF] hover:text-[#1F4BFF]"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: "0.875rem" }}
+              >
+                📖 Study Mode
+              </Button>
+            )}
           </div>
 
           <p
