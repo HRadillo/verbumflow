@@ -130,6 +130,7 @@ export function ConjugationPractice({
   const [practiceScore, setPracticeScore] = useState(0);
   // last correct answer — shown in loss overlay
   const [lastCorrectAnswer, setLastCorrectAnswer] = useState<string | null>(null);
+  const [lossRuleHint, setLossRuleHint] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -469,6 +470,7 @@ export function ConjugationPractice({
     setShowLevelUp(false);
     setHasShownLevelUp(false);
     setLastCorrectAnswer(null);
+    setLossRuleHint(null);
   };
 
   const handleSwitchGameMode = (newMode: GameMode) => {
@@ -553,6 +555,8 @@ export function ConjugationPractice({
       setLastStreakValue(streak);
       setStreak(0);
       setLastCorrectAnswer(currentQuestion?.correctAnswer ?? null);
+      const { rule, tip } = getRule(currentQuestion?.verb ?? "", currentQuestion?.tense ?? "");
+      setLossRuleHint(rule || tip || null);
       setGameState("lost");
     } else {
       setStreak(newStreak);
@@ -627,6 +631,10 @@ export function ConjugationPractice({
 
   // Handler for Next button when timed out
   const handleNextAfterTimeout = () => {
+    if (currentQuestion) {
+      const { rule, tip } = getRule(currentQuestion.verb, currentQuestion.tense);
+      setLossRuleHint(rule || tip || null);
+    }
     setIsAnswered(false);
     setIsTimedOut(false);
     setFeedback(null);
@@ -907,6 +915,18 @@ export function ConjugationPractice({
                 {lastCorrectAnswer}
               </p>
             </div>
+          )}
+          {lossRuleHint && (
+            <p
+              className="text-sm text-center px-4"
+              style={{
+                fontFamily: 'var(--font-jetbrains)',
+                letterSpacing: '0.5px',
+                opacity: 0.7,
+              }}
+            >
+              {lossRuleHint}
+            </p>
           )}
           <button
             onClick={handleTryAgain}
