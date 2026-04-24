@@ -67,6 +67,20 @@ export default function Home() {
     setShowStudyMode(true);
   }, []);
 
+  if (loading) {
+    return (
+      <main
+        className="flex min-h-screen w-full items-center justify-center"
+        style={{
+          background:
+            "radial-gradient(ellipse at 0% 0%, rgba(31,75,255,0.15) 0%, transparent 50%), radial-gradient(ellipse at 100% 100%, rgba(255,106,77,0.15) 0%, transparent 50%), #0B1020",
+        }}
+      >
+        <div className="h-10 w-10 border-4 border-dashed rounded-full animate-spin border-[#1F4BFF]" />
+      </main>
+    );
+  }
+
   return (
     <main
       className="flex min-h-screen w-full flex-col items-center p-4 sm:p-6 lg:p-8 pb-6"
