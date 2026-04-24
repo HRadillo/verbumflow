@@ -176,6 +176,7 @@ export function ConjugationPractice({
   const [correctAnswerCount, setCorrectAnswerCount] = useState(0);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [hasShownLevelUp, setHasShownLevelUp] = useState(false);
+  const [currentQuestionIsTyping, setCurrentQuestionIsTyping] = useState(false);
   // practiceOnly score
   const [practiceScore, setPracticeScore] = useState(0);
   // last correct answer — shown in loss overlay
@@ -356,11 +357,19 @@ export function ConjugationPractice({
       return;
     }
 
-    // Force fill-in-the-blank after level-up (unless practiceOnly)
-    const forceFillIn = hasShownLevelUp && !practiceOnly;
+    // After level-up: competitive → random MC/fill-in per question; casual → permanently fill-in
+    const isPostLevelUp = hasShownLevelUp && !practiceOnly;
+    const useRandomMode = isPostLevelUp && competitiveMode;
+    const forceFillIn = isPostLevelUp && !competitiveMode;
+
+    let nextTyping = false;
+    if (useRandomMode) {
+      nextTyping = Math.random() < 0.5;
+      setCurrentQuestionIsTyping(nextTyping);
+    }
 
     if (gameMode === "random") {
-      if (!forceFillIn && mode === "multiple-choice" && feedback === "correct" && currentQuestion) {
+      if (!forceFillIn && !useRandomMode && mode === "multiple-choice" && feedback === "correct" && currentQuestion) {
         setMode("fill-in-the-blank");
         const detail = getQuestionDetails(
           {
@@ -375,7 +384,7 @@ export function ConjugationPractice({
         const trimmed = recentRandomPairs.slice(-4);
         const nextQ = pickRandomQuestion(trimmed);
         const pair = `${nextQ.verb}|${nextQ.pronoun}`;
-        const nextMode = forceFillIn ? "fill-in-the-blank" : "multiple-choice";
+        const nextMode: PracticeMode = forceFillIn || nextTyping ? "fill-in-the-blank" : "multiple-choice";
         setMode(nextMode);
         setCurrentQuestion(getQuestionDetails(nextQ, nextMode));
         setRecentRandomPairs([...trimmed, pair]);
@@ -384,7 +393,7 @@ export function ConjugationPractice({
     }
 
     // ── Classic mode ──
-    const nextMode = forceFillIn ? "fill-in-the-blank" : "multiple-choice";
+    const nextMode: PracticeMode = forceFillIn || nextTyping ? "fill-in-the-blank" : "multiple-choice";
     setFillInTheBlankQueue([]);
 
     const nextIdx = classicCycleIndex + 1;
@@ -445,6 +454,7 @@ export function ConjugationPractice({
     classicCycleIndex,
     classicVerbTenseQueue,
     pickClassicVerbTensePair,
+    competitiveMode,
   ]);
 
   useEffect(() => {
@@ -556,6 +566,7 @@ export function ConjugationPractice({
     setCorrectAnswerCount(0);
     setShowLevelUp(false);
     setHasShownLevelUp(false);
+    setCurrentQuestionIsTyping(false);
     setClassicCycleIndex(0);
     setClassicVerbTenseQueue([]);
     setGameState("playing");
@@ -578,6 +589,7 @@ export function ConjugationPractice({
     setCorrectAnswerCount(0);
     setShowLevelUp(false);
     setHasShownLevelUp(false);
+    setCurrentQuestionIsTyping(false);
     setLastCorrectAnswer(null);
     setLossRuleHint(null);
     setClassicCycleIndex(0);
@@ -617,6 +629,7 @@ export function ConjugationPractice({
     setCorrectAnswerCount(0);
     setShowLevelUp(false);
     setHasShownLevelUp(false);
+    setCurrentQuestionIsTyping(false);
     setClassicCycleIndex(0);
     setClassicVerbTenseQueue([]);
   };
@@ -644,6 +657,7 @@ export function ConjugationPractice({
     setCorrectAnswerCount(0);
     setShowLevelUp(false);
     setHasShownLevelUp(false);
+    setCurrentQuestionIsTyping(false);
     setClassicCycleIndex(0);
     setClassicVerbTenseQueue([]);
   };
@@ -1074,7 +1088,7 @@ export function ConjugationPractice({
                     fontSize: "1.5rem",
                   }}
                 >
-                  Level Up
+                  {competitiveMode ? "C'est parti — for real." : "Level Up"}
                 </h3>
                 <p
                   style={{
@@ -1084,19 +1098,23 @@ export function ConjugationPractice({
                     fontSize: "0.875rem",
                   }}
                 >
-                  From now on — write it out.
+                  {competitiveMode
+                    ? "You've got the basics down. From here, the game will mix it up — sometimes you choose, sometimes you type. Stay sharp."
+                    : "From now on — write it out."}
                 </p>
-                <p
-                  style={{
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    fontWeight: 400,
-                    color: "rgba(11,16,32,0.4)",
-                    fontSize: "0.75rem",
-                    fontStyle: "italic",
-                  }}
-                >
-                  No more options. Just memory.
-                </p>
+                {!competitiveMode && (
+                  <p
+                    style={{
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                      fontWeight: 400,
+                      color: "rgba(11,16,32,0.4)",
+                      fontSize: "0.75rem",
+                      fontStyle: "italic",
+                    }}
+                  >
+                    No more options. Just memory.
+                  </p>
+                )}
                 <button
                   onClick={handleLevelUpReady}
                   className="w-full h-12 rounded-xl text-white font-bold text-base transition-all hover:opacity-90 active:scale-[0.98]"
@@ -1106,7 +1124,7 @@ export function ConjugationPractice({
                     fontWeight: 700,
                   }}
                 >
-                  I&apos;m ready →
+                  {competitiveMode ? "Let's go →" : "I’m ready →"}
                 </button>
               </div>
             )}
