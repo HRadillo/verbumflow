@@ -6,6 +6,7 @@ import { UserMenu } from "@/app/components/user-menu";
 import { Leaderboard } from "@/app/components/leaderboard";
 import { Onboarding } from "@/app/components/onboarding";
 import { Felicitations } from "@/app/components/felicitations";
+import { StudyMode } from "@/app/components/study-mode";
 import { useAuth } from "@/contexts/auth-context";
 import { useState, useEffect, useCallback } from "react";
 import { initializeUserStats, type UserStats } from "@/lib/firestore";
@@ -14,6 +15,7 @@ import { Heart } from "lucide-react";
 export default function Home() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showStudyMode, setShowStudyMode] = useState(false);
   const [felicitationsType, setFelicitationsType] = useState<
     "personal" | "global" | null
   >(null);
@@ -61,9 +63,13 @@ export default function Home() {
     setFelicitationsType(null);
   }, []);
 
+  const handleOpenStudy = useCallback(() => {
+    setShowStudyMode(true);
+  }, []);
+
   return (
     <main
-      className="flex min-h-screen w-full flex-col items-center justify-center p-4 sm:p-6 lg:p-8"
+      className="flex min-h-screen w-full flex-col items-center p-4 sm:p-6 lg:p-8 pb-6"
       style={{
         background:
           "radial-gradient(ellipse at 0% 0%, rgba(31,75,255,0.15) 0%, transparent 50%), radial-gradient(ellipse at 100% 100%, rgba(255,106,77,0.15) 0%, transparent 50%), #0B1020",
@@ -75,6 +81,7 @@ export default function Home() {
           onShowLeaderboard={() => setShowLeaderboard(true)}
           onShowOnboarding={() => setShowOnboarding(true)}
           onBackToMenu={() => setShowOnboarding(true)}
+          onOpenStudy={handleOpenStudy}
         />
       </div>
 
@@ -110,82 +117,86 @@ export default function Home() {
         </div>
       )}
 
-      <div className="w-full max-w-md">
-        <header className="text-center mb-6">
-          {/* Brand mark + wordmark */}
-          <div className="flex items-end justify-center gap-3 mb-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="40 30 220 180"
-              className="h-10 sm:h-12 w-auto flex-shrink-0"
-              style={{ marginBottom: "2px" }}
-              aria-hidden="true"
-            >
-              <g transform="translate(40 40)">
-                <defs>
-                  <linearGradient
-                    id="vf-mark-header"
-                    x1="25"
-                    x2="185"
-                    y1="0"
-                    y2="0"
-                    gradientUnits="userSpaceOnUse"
-                  >
-                    <stop offset="50%" stopColor="#FF6A4D" />
-                    <stop offset="50%" stopColor="#1F4BFF" />
-                  </linearGradient>
-                </defs>
-                <path
-                  d="M40 50 L105 160 L170 50"
-                  fill="none"
-                  stroke="#FFFFFF"
-                  strokeWidth="22"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M25 100 Q70 70 105 100 T185 100"
-                  fill="none"
-                  stroke="url(#vf-mark-header)"
-                  strokeWidth="14"
-                  strokeLinecap="round"
-                />
-              </g>
-            </svg>
-            {/* Wordmark */}
-            <span
-              className="text-4xl sm:text-5xl"
+      {/* Center content — grows to fill space */}
+      <div className="flex-1 flex flex-col items-center justify-center w-full">
+        <div className="w-full max-w-md">
+          <header className="text-center mb-6">
+            {/* Brand mark + wordmark */}
+            <div className="flex items-end justify-center gap-3 mb-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="40 30 220 180"
+                className="h-10 sm:h-12 w-auto flex-shrink-0"
+                style={{ marginBottom: "2px" }}
+                aria-hidden="true"
+              >
+                <g transform="translate(40 40)">
+                  <defs>
+                    <linearGradient
+                      id="vf-mark-header"
+                      x1="25"
+                      x2="185"
+                      y1="0"
+                      y2="0"
+                      gradientUnits="userSpaceOnUse"
+                    >
+                      <stop offset="50%" stopColor="#FF6A4D" />
+                      <stop offset="50%" stopColor="#1F4BFF" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    d="M40 50 L105 160 L170 50"
+                    fill="none"
+                    stroke="#FFFFFF"
+                    strokeWidth="22"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M25 100 Q70 70 105 100 T185 100"
+                    fill="none"
+                    stroke="url(#vf-mark-header)"
+                    strokeWidth="14"
+                    strokeLinecap="round"
+                  />
+                </g>
+              </svg>
+              {/* Wordmark */}
+              <span
+                className="text-4xl sm:text-5xl"
+                style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  letterSpacing: "-2px",
+                  lineHeight: 1,
+                }}
+              >
+                <span className="font-bold text-white">verbum</span>
+                <span style={{ fontWeight: 800, color: "#FF6A4D" }}>flow</span>
+              </span>
+            </div>
+            {/* Tagline */}
+            <p
+              className="text-xs text-white uppercase"
               style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                letterSpacing: "-2px",
-                lineHeight: 1,
+                fontFamily: "'JetBrains Mono', monospace",
+                letterSpacing: "4px",
+                opacity: 0.6,
               }}
             >
-              <span className="font-bold text-white">verbum</span>
-              <span style={{ fontWeight: 800, color: "#FF6A4D" }}>flow</span>
-            </span>
-          </div>
-          {/* Tagline */}
-          <p
-            className="text-xs text-white uppercase"
-            style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              letterSpacing: "4px",
-              opacity: 0.6,
-            }}
-          >
-            LEARN AND COMPETE
-          </p>
-        </header>
+              LEARN AND COMPETE
+            </p>
+          </header>
 
-        <ConjugationPractice
-          onNextQuestion={() => {}}
-          onStatsUpdate={setUserStats}
-          onStreakRecord={handleStreakRecord}
-        />
+          <ConjugationPractice
+            onNextQuestion={() => {}}
+            onStatsUpdate={setUserStats}
+            onStreakRecord={handleStreakRecord}
+          />
+        </div>
       </div>
 
-      <footer className="absolute bottom-4 text-center text-xs text-white/80 drop-shadow-sm">
+      {/* Footer — always at bottom, never overlapping */}
+      <footer className="w-full text-center text-xs text-white/80 drop-shadow-sm pt-4">
         <p>&copy; {new Date().getFullYear()} Created by Horacio Radillo</p>
         <p>For educational purposes only.</p>
         <a
@@ -204,8 +215,14 @@ export default function Home() {
 
       {/* Onboarding overlay */}
       {showOnboarding && (
-        <Onboarding onClose={() => setShowOnboarding(false)} />
+        <Onboarding
+          onClose={() => setShowOnboarding(false)}
+          onOpenStudy={handleOpenStudy}
+        />
       )}
+
+      {/* Study Mode modal */}
+      <StudyMode open={showStudyMode} onOpenChange={setShowStudyMode} />
 
       {/* Félicitations overlay */}
       {felicitationsType && (
