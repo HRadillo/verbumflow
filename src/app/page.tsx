@@ -85,49 +85,16 @@ export default function Home() {
         />
       </div>
 
-      {/* User stats badges (signed-in only) */}
-      {userStats && (
-        <div className="absolute top-4 left-4 flex gap-2 z-10">
-          {/* Daily streak */}
-          <div
-            title="Daily Streak — consecutive days you've practiced"
-            className="flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-full px-3 py-1 cursor-default"
-          >
-            <span className="text-sm">📅</span>
-            <span
-              className="text-white text-xs font-semibold tabular-nums"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              {userStats.dailyStreak}d
-            </span>
-          </div>
-          {/* Total correct */}
-          <div
-            title="Total Correct — all-time correct answers"
-            className="flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-full px-3 py-1 cursor-default"
-          >
-            <span className="text-sm">🎯</span>
-            <span
-              className="text-white text-xs font-semibold tabular-nums"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              {userStats.totalCorrect}
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Center content — grows to fill space */}
       <div className="flex-1 flex flex-col items-center justify-center w-full">
         <div className="w-full max-w-md">
           <header className="text-center mb-6">
             {/* Brand mark + wordmark */}
-            <div className="flex items-end justify-center gap-3 mb-2">
+            <div className="flex items-center justify-center gap-3 mb-2">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="40 30 220 180"
                 className="h-10 sm:h-12 w-auto flex-shrink-0"
-                style={{ marginBottom: "2px" }}
                 aria-hidden="true"
               >
                 <g transform="translate(40 40)">
@@ -191,6 +158,7 @@ export default function Home() {
             onNextQuestion={() => {}}
             onStatsUpdate={setUserStats}
             onStreakRecord={handleStreakRecord}
+            userStats={userStats}
           />
         </div>
       </div>

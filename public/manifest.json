@@ -3,7 +3,7 @@
   "short_name": "VerbumFlow",
   "description": "Master French verb conjugations with interactive flashcards",
   "start_url": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "background_color": "#0B1020",
   "theme_color": "#0B1020",
   "orientation": "portrait-primary",

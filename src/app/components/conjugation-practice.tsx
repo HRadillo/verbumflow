@@ -51,6 +51,7 @@ type ConjugationPracticeProps = {
   onStatsUpdate?: React.Dispatch<React.SetStateAction<UserStats | null>>;
   onStreakRecord?: (type: "personal" | "global") => void;
   practiceOnly?: boolean;
+  userStats?: UserStats | null;
 };
 
 const TIMER_DURATION = 15;
@@ -99,6 +100,7 @@ export function ConjugationPractice({
   onStatsUpdate,
   onStreakRecord,
   practiceOnly = false,
+  userStats = null,
 }: ConjugationPracticeProps) {
   const [gameState, setGameState] = useState<GameState>(
     practiceOnly ? "playing" : "idle"
@@ -126,6 +128,8 @@ export function ConjugationPractice({
   const [hasShownLevelUp, setHasShownLevelUp] = useState(false);
   // practiceOnly score
   const [practiceScore, setPracticeScore] = useState(0);
+  // last correct answer — shown in loss overlay
+  const [lastCorrectAnswer, setLastCorrectAnswer] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -383,6 +387,8 @@ export function ConjugationPractice({
     setIsAnswered(true);
     setFeedback("incorrect");
     setIsTimedOut(true);
+    setUserAnswer("");
+    setLastCorrectAnswer(currentQuestion.correctAnswer);
     setLastStreakValue(streak);
     setStreak(0);
     setFillInTheBlankQueue([]);
@@ -456,11 +462,13 @@ export function ConjugationPractice({
     setFeedback(null);
     setIsAnswered(false);
     setIsTimedOut(false);
+    setUserAnswer("");
     setFillInTheBlankQueue([]);
     setMode("multiple-choice");
     setCorrectAnswerCount(0);
     setShowLevelUp(false);
     setHasShownLevelUp(false);
+    setLastCorrectAnswer(null);
   };
 
   const handleSwitchGameMode = (newMode: GameMode) => {
@@ -489,6 +497,7 @@ export function ConjugationPractice({
     setFeedback(null);
     setIsAnswered(false);
     setIsTimedOut(false);
+    setUserAnswer("");
     setTimeLeft(TIMER_DURATION);
     setCurrentQuestion(null);
     setKey((k) => k + 1);
@@ -513,6 +522,7 @@ export function ConjugationPractice({
     setFeedback(null);
     setIsAnswered(false);
     setIsTimedOut(false);
+    setUserAnswer("");
     setTimeLeft(TIMER_DURATION);
     setCurrentQuestion(null);
     setKey((k) => k + 1);
@@ -542,6 +552,7 @@ export function ConjugationPractice({
     if (!isCorrect) {
       setLastStreakValue(streak);
       setStreak(0);
+      setLastCorrectAnswer(currentQuestion?.correctAnswer ?? null);
       setGameState("lost");
     } else {
       setStreak(newStreak);
@@ -647,21 +658,21 @@ export function ConjugationPractice({
     const isUserChoice = option === userAnswer;
 
     if (isCorrectAnswer) {
-      return "bg-[#1F4BFF] text-white border-[#1F4BFF] hover:bg-[#1637CC] disabled:opacity-100";
+      return "bg-[#22C55E] text-white border-[#22C55E] hover:bg-[#16A34A] disabled:opacity-100";
     }
     if (isUserChoice && !isCorrectAnswer) {
-      return "bg-[#FF6A4D] text-white border-[#FF6A4D] hover:bg-[#D95A3F] disabled:opacity-100";
+      return "bg-[#FF6A4D] text-white border-[#FF6A4D] disabled:opacity-100";
     }
-    return "bg-white text-[#0B1020] border border-gray-200 opacity-50";
+    return "bg-white text-[#0B1020] border border-gray-200 opacity-40";
   };
 
   const getInputClass = () => {
     if (!isAnswered)
       return "bg-[#FAFAF7] border-gray-200 focus-visible:ring-[#1F4BFF] focus-visible:border-[#0B1020]";
     if (feedback === "correct")
-      return "bg-green-100 border-green-500 focus-visible:ring-green-500";
+      return "bg-[#DCFCE7] border-[#22C55E] text-[#15803D] focus-visible:ring-[#22C55E]";
     if (feedback === "incorrect")
-      return "bg-red-100 border-red-500 focus-visible:ring-red-500";
+      return "bg-[#FEE2E2] border-[#FF6A4D] text-[#DC2626] focus-visible:ring-[#FF6A4D]";
     return "bg-[#FAFAF7]";
   };
 
@@ -822,6 +833,31 @@ export function ConjugationPractice({
           >
             Start Streak →
           </button>
+          {userStats && (
+            <div className="flex justify-center gap-3 mt-3">
+              <div
+                className="flex items-center gap-1 text-xs text-gray-500"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+              >
+                <span>📅</span>
+                <span>{userStats.dailyStreak}d streak</span>
+              </div>
+              <div
+                className="flex items-center gap-1 text-xs text-gray-500"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+              >
+                <span>🎯</span>
+                <span>{userStats.totalCorrect} correct</span>
+              </div>
+              <div
+                className="flex items-center gap-1 text-xs text-gray-500"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+              >
+                <span>🔥</span>
+                <span>Best: {gameMode === "classic" ? userStats.classicLongestStreak : userStats.randomLongestStreak}</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -856,6 +892,22 @@ export function ConjugationPractice({
               ? `${lastStreakValue} in a row — not bad.`
               : "You'll get it next time."}
           </p>
+          {lastCorrectAnswer && (
+            <div className="mt-3 text-center">
+              <p
+                className="text-xs text-gray-400 mb-1"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+              >
+                The answer was
+              </p>
+              <p
+                className="text-lg font-bold"
+                style={{ color: "#22C55E", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+              >
+                {lastCorrectAnswer}
+              </p>
+            </div>
+          )}
           <button
             onClick={handleTryAgain}
             className="w-full h-14 rounded-xl text-white font-bold text-base transition-all hover:opacity-90 active:scale-[0.98]"
