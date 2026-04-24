@@ -90,5 +90,7 @@
   body {
     font-family: var(--font-display);
     @apply bg-background text-foreground;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
