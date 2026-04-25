@@ -56,18 +56,18 @@ export function UserMenu({
   if (loading) {
     return (
       <>
-        <div className="flex justify-center gap-6">
+        <div className="flex justify-center gap-8">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="h-11 w-11 rounded-full bg-white/10 animate-pulse" />
           ))}
         </div>
-        <div className="fixed top-4 right-4 z-50 h-9 w-9 rounded-full bg-white/20 animate-pulse" />
+        <div className="fixed top-3 right-3 z-50 h-10 w-10 rounded-full bg-white/20 animate-pulse" />
       </>
     );
   }
 
   const navRow = (
-    <div className="flex justify-center gap-6">
+    <div className="flex justify-center gap-8">
       {navItems.map(({ icon: Icon, label, onClick, screen }) => {
         if (!onClick) return null;
         const isActive = screen !== undefined && activeScreen === screen;
@@ -90,7 +90,7 @@ export function UserMenu({
   const avatarEl = isGuest ? (
     <button
       onClick={signInWithGoogle}
-      className="fixed top-4 right-4 z-50 p-2 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors focus:outline-none"
+      className="fixed top-3 right-3 z-50 h-10 w-10 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors focus:outline-none"
       title="Sign in with Google"
       aria-label="Sign in with Google"
     >
@@ -100,7 +100,7 @@ export function UserMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="fixed top-4 right-4 z-50 h-9 w-9 rounded-full border-2 border-white/30 overflow-hidden hover:border-white/60 transition-colors focus:outline-none"
+          className="fixed top-3 right-3 z-50 h-10 w-10 rounded-full border-2 border-white/30 overflow-hidden hover:border-white/60 transition-colors focus:outline-none"
           title={user?.displayName ?? "Account"}
           aria-label="Account menu"
         >
