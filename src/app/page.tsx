@@ -116,7 +116,7 @@ export default function Home() {
       {/* Two-row header: Row 1 = logo/wordmark/tagline, Row 2 = nav icons */}
       <div className="w-full max-w-md">
         {/* Row 1: Brand mark + wordmark + tagline */}
-        <header className="text-center mb-3">
+        <header className="text-center mb-3 pt-14">
           <div className="flex items-center justify-center gap-3 mb-2">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -180,7 +180,7 @@ export default function Home() {
         </header>
 
         {/* Row 2: Centered nav icons (avatar is fixed top-right) */}
-        <div className="mb-6">
+        <div className="mb-2">
           <UserMenu
             onShowLeaderboard={() => setShowLeaderboard(true)}
             onShowOnboarding={() => setShowOnboarding(true)}
