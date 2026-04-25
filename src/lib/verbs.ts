@@ -677,7 +677,7 @@ export const verbData: VerbData = {
     }
   };
 
-  const rules = {
+  const rules: Record<string, Record<string, string>> = {
     "Présent": {
         "er": "For regular -er verbs, drop the -er and add endings: -e, -es, -e, -ons, -ez, -ent.",
         "ir": "For regular -ir verbs, drop the -ir and add endings: -is, -is, -it, -issons, -issez, -issent.",
@@ -744,7 +744,7 @@ export const verbData: VerbData = {
     }
   };
   
-  const tips = {
+  const tips: Record<string, Record<string, string>> = {
     "Présent": {
         "er": "Think 'parler': je parle, tu parles, il parle, nous parlons, vous parlez, ils parlent.",
         "ir": "Think 'finir': je finis, tu finis, il finit, nous finissons, vous finissez, ils finissent.",
@@ -812,16 +812,15 @@ export const verbData: VerbData = {
     }
     
     // Check for fully irregular verbs that have their own rules
-    const irregularVerbs = ["être", "avoir", "aller", "faire", "pouvoir", "vouloir", "savoir", "dire", "mettre", "prendre", "voir", "devoir", "venir", "croire", "boire", "recevoir", "dormir", "courir", "sentir", "servir"];
     if (rules[tense]?.[verb]) {
       specialCase = verb;
-    } else if (irregularVerbs.includes(verb) && rules[tense]?.[verb]) {
-       specialCase = verb;
     }
 
 
-    let rule = rules[tense]?.[specialCase!] || rules[tense]?.[verbGroup] || rules[tense]?.default || null;
-    let tip = tips[tense]?.[specialCase!] || tips[tense]?.[verbGroup] || tips[tense]?.default || null;
+    const specialCaseRule = specialCase ? rules[tense]?.[specialCase] : null;
+    const specialCaseTip = specialCase ? tips[tense]?.[specialCase] : null;
+    let rule = specialCaseRule || rules[tense]?.[verbGroup] || rules[tense]?.default || null;
+    let tip = specialCaseTip || tips[tense]?.[verbGroup] || tips[tense]?.default || null;
 
     if (tense === "Futur simple" || tense === "Conditionnel Présent") {
         const irregularStems = ["aller", "avoir", "être", "faire", "voir", "pouvoir", "vouloir", "savoir", "devoir", "venir", "envoyer", "recevoir", "courir", "mourir"];

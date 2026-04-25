@@ -1,5 +1,7 @@
 // src/lib/firestore.ts
 import {
+  type DocumentData,
+  type UpdateData,
   doc,
   getDoc,
   setDoc,
@@ -149,7 +151,7 @@ export async function recordAnswer(
 
   const longestDailyStreak = Math.max(data.longestDailyStreak ?? 0, dailyStreak);
 
-  const updates: Record<string, unknown> = {
+  const updates: UpdateData<DocumentData> = {
     totalCorrect: (data.totalCorrect ?? 0) + (isCorrect ? 1 : 0),
     totalAnswered: (data.totalAnswered ?? 0) + 1,
     lastPracticeDate: today,
@@ -309,7 +311,7 @@ export async function submitDuelScore(
 
     const data = duelSnap.data();
     const isChallenger = data.challengerUid === uid;
-    const updates: Record<string, unknown> = {
+    const updates: UpdateData<DocumentData> = {
       [isChallenger ? "challengerScore" : "challengedScore"]: score,
     };
 
@@ -320,16 +322,20 @@ export async function submitDuelScore(
     let winnerId: string | null = data.winnerId;
 
     if (challengerScore !== null && challengedScore !== null) {
-      winnerId =
+      const resolvedWinnerId: string =
         challengerScore >= challengedScore ? data.challengerUid : data.challengedUid;
-      const loserId = winnerId === data.challengerUid ? data.challengedUid : data.challengerUid;
+      winnerId = resolvedWinnerId;
+      const loserId =
+        resolvedWinnerId === data.challengerUid
+          ? data.challengedUid
+          : data.challengerUid;
 
       updates.status = "completed";
-      updates.winnerId = winnerId;
+      updates.winnerId = resolvedWinnerId;
       updates.completedAt = serverTimestamp();
       resultStatus = "completed";
 
-      transaction.update(doc(db, "users", winnerId), { duelsWon: increment(1) });
+      transaction.update(doc(db, "users", resolvedWinnerId), { duelsWon: increment(1) });
       transaction.update(doc(db, "users", loserId), { duelsLost: increment(1) });
     }
 
