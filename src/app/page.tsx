@@ -83,6 +83,14 @@ export default function Home() {
     // Guest or idle: no-op (player is already at the idle screen)
   }, [user, currentGameState]);
 
+  const activeScreen = showLeaderboard
+    ? ("leaderboard" as const)
+    : showStudyMode
+    ? ("study" as const)
+    : showOnboarding
+    ? ("help" as const)
+    : ("home" as const);
+
   if (loading) {
     return (
       <main
@@ -171,14 +179,14 @@ export default function Home() {
           </p>
         </header>
 
-        {/* Row 2: Nav icons (left) + avatar (right) */}
-        <div className="mb-4">
+        {/* Row 2: Centered nav icons (avatar is fixed top-right) */}
+        <div className="mb-6">
           <UserMenu
-            fullWidth
             onShowLeaderboard={() => setShowLeaderboard(true)}
             onShowOnboarding={() => setShowOnboarding(true)}
             onBackToMenu={handleHomeClick}
             onOpenStudy={handleOpenStudy}
+            activeScreen={activeScreen}
           />
         </div>
       </div>

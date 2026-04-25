@@ -3,7 +3,6 @@
 
 import React from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,14 +12,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogIn, LogOut, User, Trophy, HelpCircle, House, BookOpen, Share2 } from "lucide-react";
+import { type LucideIcon, LogIn, LogOut, User, Trophy, CircleHelp, House, BookOpen, Share2 } from "lucide-react";
+
+type ActiveScreen = "home" | "leaderboard" | "study" | "help";
 
 type UserMenuProps = {
   onShowLeaderboard: () => void;
   onShowOnboarding?: () => void;
   onBackToMenu?: () => void;
   onOpenStudy?: () => void;
-  fullWidth?: boolean;
+  activeScreen?: ActiveScreen;
 };
 
 const handleChallengeFriend = () => {
@@ -30,137 +31,89 @@ const handleChallengeFriend = () => {
   window.open(`https://wa.me/?text=${message}`, "_blank");
 };
 
-const iconClass = "h-11 w-11 text-white/70 hover:text-white hover:bg-white/10 transition-colors";
-
-export function UserMenu({ onShowLeaderboard, onShowOnboarding, onBackToMenu, onOpenStudy, fullWidth = false }: UserMenuProps) {
+export function UserMenu({
+  onShowLeaderboard,
+  onShowOnboarding,
+  onBackToMenu,
+  onOpenStudy,
+  activeScreen = "home",
+}: UserMenuProps) {
   const { user, signInWithGoogle, signOut, isGuest, loading } = useAuth();
+
+  const navItems: Array<{
+    icon: LucideIcon;
+    label: string;
+    onClick?: () => void;
+    screen?: ActiveScreen;
+  }> = [
+    { icon: House, label: "Home", onClick: onBackToMenu, screen: "home" },
+    { icon: BookOpen, label: "Study Mode", onClick: onOpenStudy, screen: "study" },
+    { icon: Share2, label: "Challenge a friend", onClick: handleChallengeFriend },
+    { icon: CircleHelp, label: "How to play", onClick: onShowOnboarding, screen: "help" },
+    { icon: Trophy, label: "Leaderboard", onClick: onShowLeaderboard, screen: "leaderboard" },
+  ];
 
   if (loading) {
     return (
-      <div className={fullWidth ? "flex items-center justify-between w-full" : "flex gap-2"}>
-        <div className="h-11 w-11 rounded-full bg-white/20 animate-pulse" />
-      </div>
+      <>
+        <div className="flex justify-center gap-6">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-11 w-11 rounded-full bg-white/10 animate-pulse" />
+          ))}
+        </div>
+        <div className="fixed top-4 right-4 z-50 h-9 w-9 rounded-full bg-white/20 animate-pulse" />
+      </>
     );
   }
 
-  const navIcons = (
-    <div className="flex items-center gap-1">
-      {onBackToMenu && (
-        <Button
-          onClick={onBackToMenu}
-          variant="ghost"
-          size="icon"
-          className={iconClass}
-          title="Home"
-        >
-          <House className="h-5 w-5" />
-        </Button>
-      )}
-      {onOpenStudy && (
-        <Button
-          onClick={onOpenStudy}
-          variant="ghost"
-          size="icon"
-          className={iconClass}
-          title="Study Mode"
-        >
-          <BookOpen className="h-5 w-5" />
-        </Button>
-      )}
-      <Button
-        onClick={handleChallengeFriend}
-        variant="ghost"
-        size="icon"
-        className={iconClass}
-        title="Challenge a friend"
-      >
-        <Share2 className="h-5 w-5" />
-      </Button>
-      {onShowOnboarding && (
-        <Button
-          onClick={onShowOnboarding}
-          variant="ghost"
-          size="icon"
-          className={iconClass}
-          title="How to play"
-        >
-          <HelpCircle className="h-5 w-5" />
-        </Button>
-      )}
-      <Button
-        onClick={onShowLeaderboard}
-        variant="ghost"
-        size="icon"
-        className={iconClass}
-        title="Leaderboard"
-      >
-        <Trophy className="h-5 w-5" />
-      </Button>
+  const navRow = (
+    <div className="flex justify-center gap-6">
+      {navItems.map(({ icon: Icon, label, onClick, screen }) => {
+        if (!onClick) return null;
+        const isActive = screen !== undefined && activeScreen === screen;
+        return (
+          <button
+            key={label}
+            onClick={onClick}
+            className="p-3 rounded-full text-white hover:bg-white/10 transition-colors"
+            style={{ opacity: isActive ? 1 : 0.4 }}
+            title={label}
+            aria-label={label}
+          >
+            <Icon size={20} />
+          </button>
+        );
+      })}
     </div>
   );
 
-  if (isGuest) {
-    const authButton = (
-      <Button
-        onClick={signInWithGoogle}
-        variant="ghost"
-        className="text-white/70 hover:text-white hover:bg-white/10 transition-colors gap-2"
-      >
-        <LogIn className="h-4 w-4" />
-        <span className="hidden sm:inline">Sign in</span>
-      </Button>
-    );
-
-    return fullWidth ? (
-      <div className="flex items-center justify-between w-full">
-        {navIcons}
-        {authButton}
-      </div>
-    ) : (
-      <div className="flex gap-2 items-center">
-        {onBackToMenu && (
-          <Button onClick={onBackToMenu} variant="ghost" size="icon" className={iconClass} title="Home">
-            <House className="h-5 w-5" />
-          </Button>
-        )}
-        {onOpenStudy && (
-          <Button onClick={onOpenStudy} variant="ghost" size="icon" className={iconClass} title="Study Mode">
-            <BookOpen className="h-5 w-5" />
-          </Button>
-        )}
-        <Button onClick={handleChallengeFriend} variant="ghost" size="icon" className={iconClass} title="Challenge a friend">
-          <Share2 className="h-5 w-5" />
-        </Button>
-        {onShowOnboarding && (
-          <Button onClick={onShowOnboarding} variant="ghost" size="icon" className={iconClass} title="How to play">
-            <HelpCircle className="h-5 w-5" />
-          </Button>
-        )}
-        <Button onClick={onShowLeaderboard} variant="ghost" size="icon" className={iconClass} title="Leaderboard">
-          <Trophy className="h-5 w-5" />
-        </Button>
-        {authButton}
-      </div>
-    );
-  }
-
-  const avatarMenu = (
+  const avatarEl = isGuest ? (
+    <button
+      onClick={signInWithGoogle}
+      className="fixed top-4 right-4 z-50 p-2 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors focus:outline-none"
+      title="Sign in with Google"
+      aria-label="Sign in with Google"
+    >
+      <LogIn size={20} />
+    </button>
+  ) : (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          className="relative h-11 w-11 rounded-full p-0 hover:bg-white/10"
+        <button
+          className="fixed top-4 right-4 z-50 h-9 w-9 rounded-full border-2 border-white/30 overflow-hidden hover:border-white/60 transition-colors focus:outline-none"
+          title={user?.displayName ?? "Account"}
+          aria-label="Account menu"
         >
-          <Avatar className="h-9 w-9 border-2 border-white/30">
+          <Avatar className="h-full w-full">
             <AvatarImage
               src={user?.photoURL ?? undefined}
               alt={user?.displayName ?? "User"}
             />
             <AvatarFallback className="bg-white/20 text-white">
-              <User className="h-4 w-4" />
+              <User size={14} />
             </AvatarFallback>
           </Avatar>
-        </Button>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
@@ -178,7 +131,7 @@ export function UserMenu({ onShowLeaderboard, onShowOnboarding, onBackToMenu, on
         </DropdownMenuItem>
         {onShowOnboarding && (
           <DropdownMenuItem onClick={onShowOnboarding}>
-            <HelpCircle className="mr-2 h-4 w-4" />
+            <CircleHelp className="mr-2 h-4 w-4" />
             How to Play
           </DropdownMenuItem>
         )}
@@ -191,35 +144,10 @@ export function UserMenu({ onShowLeaderboard, onShowOnboarding, onBackToMenu, on
     </DropdownMenu>
   );
 
-  return fullWidth ? (
-    <div className="flex items-center justify-between w-full">
-      {navIcons}
-      {avatarMenu}
-    </div>
-  ) : (
-    <div className="flex gap-2 items-center">
-      {onBackToMenu && (
-        <Button onClick={onBackToMenu} variant="ghost" size="icon" className={iconClass} title="Home">
-          <House className="h-5 w-5" />
-        </Button>
-      )}
-      {onOpenStudy && (
-        <Button onClick={onOpenStudy} variant="ghost" size="icon" className={iconClass} title="Study Mode">
-          <BookOpen className="h-5 w-5" />
-        </Button>
-      )}
-      <Button onClick={handleChallengeFriend} variant="ghost" size="icon" className={iconClass} title="Challenge a friend">
-        <Share2 className="h-5 w-5" />
-      </Button>
-      {onShowOnboarding && (
-        <Button onClick={onShowOnboarding} variant="ghost" size="icon" className={iconClass} title="How to play">
-          <HelpCircle className="h-5 w-5" />
-        </Button>
-      )}
-      <Button onClick={onShowLeaderboard} variant="ghost" size="icon" className={iconClass} title="Leaderboard">
-        <Trophy className="h-5 w-5" />
-      </Button>
-      {avatarMenu}
-    </div>
+  return (
+    <>
+      {navRow}
+      {avatarEl}
+    </>
   );
 }
