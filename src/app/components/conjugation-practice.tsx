@@ -156,6 +156,26 @@ for (const verb of Object.keys(verbData)) {
   }
 }
 
+// Streak 0–9:   80% chance from first 50 verbs, 20% from rest
+// Streak 10–19: 60% chance from first 50, 40% from rest
+// Streak 20+:   fully random across all verbs
+function pickWeightedVerb(currentStreak: number, avoidVerb: string | null): string {
+  const commonPool = allVerbs.slice(0, 50);
+  const useCommon =
+    currentStreak >= 20
+      ? false
+      : Math.random() < (currentStreak >= 10 ? 0.6 : 0.8);
+
+  let pool = useCommon ? commonPool : allVerbs;
+
+  if (avoidVerb !== null) {
+    const filtered = pool.filter((v) => v !== avoidVerb);
+    if (filtered.length > 0) pool = filtered;
+  }
+
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 export function ConjugationPractice({
   onNextQuestion,
   onStatsUpdate,
@@ -261,13 +281,26 @@ export function ConjugationPractice({
     []
   );
 
-  const pickRandomQuestion = useCallback((recentPairs: string[]): Question => {
-    const available = allPossibleQuestions.filter(
-      (q) => !recentPairs.includes(`${q.verb}|${q.pronoun}`)
-    );
-    const pool = available.length > 0 ? available : allPossibleQuestions;
-    return pool[Math.floor(Math.random() * pool.length)];
-  }, []);
+  const pickRandomQuestion = useCallback(
+    (recentPairs: string[], currentStreak: number): Question => {
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const verb = pickWeightedVerb(currentStreak, null);
+        const verbQuestions = allPossibleQuestions.filter(
+          (q) => q.verb === verb && !recentPairs.includes(`${q.verb}|${q.pronoun}`)
+        );
+        if (verbQuestions.length > 0) {
+          return verbQuestions[Math.floor(Math.random() * verbQuestions.length)];
+        }
+      }
+      // Fallback: ignore weighting, just avoid recent pairs
+      const available = allPossibleQuestions.filter(
+        (q) => !recentPairs.includes(`${q.verb}|${q.pronoun}`)
+      );
+      const pool = available.length > 0 ? available : allPossibleQuestions;
+      return pool[Math.floor(Math.random() * pool.length)];
+    },
+    []
+  );
 
   const pickClassicQuestion = useCallback(
     (
@@ -294,11 +327,21 @@ export function ConjugationPractice({
   const pickClassicVerbTensePair = useCallback(
     (
       queue: { verb: string; tense: string }[],
-      avoidVerb: string | null
+      avoidVerb: string | null,
+      currentStreak: number
     ): {
       pair: { verb: string; tense: string };
       remainingQueue: { verb: string; tense: string }[];
     } => {
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const verb = pickWeightedVerb(currentStreak, avoidVerb);
+        const verbPairs = classicVerbTensePairs.filter((p) => p.verb === verb);
+        if (verbPairs.length > 0) {
+          const pair = verbPairs[Math.floor(Math.random() * verbPairs.length)];
+          return { pair, remainingQueue: queue };
+        }
+      }
+      // Fallback: queue-based selection
       const sourceQueue =
         queue.length > 0 ? queue : shuffleArray(classicVerbTensePairs);
       const idx =
@@ -331,7 +374,7 @@ export function ConjugationPractice({
       setFillInTheBlankQueue([]);
       if (gameMode === "random") {
         const trimmed = recentRandomPairs.slice(-4);
-        const nextQ = pickRandomQuestion(trimmed);
+        const nextQ = pickRandomQuestion(trimmed, streak);
         const pair = `${nextQ.verb}|${nextQ.pronoun}`;
         setCurrentQuestion(getQuestionDetails(nextQ, "multiple-choice"));
         setRecentRandomPairs([...trimmed, pair]);
@@ -366,7 +409,8 @@ export function ConjugationPractice({
         const avoidVerb = currentQuestion?.verb ?? lastClassicVerb;
         const { pair: nextPair, remainingQueue } = pickClassicVerbTensePair(
           classicVerbTenseQueue,
-          avoidVerb ?? null
+          avoidVerb ?? null,
+          streak
         );
         setLastClassicVerb(nextPair.verb);
         setClassicVerbTenseQueue(remainingQueue);
@@ -410,7 +454,7 @@ export function ConjugationPractice({
         setKey((prev) => prev + 1);
       } else {
         const trimmed = recentRandomPairs.slice(-4);
-        const nextQ = pickRandomQuestion(trimmed);
+        const nextQ = pickRandomQuestion(trimmed, streak);
         const pair = `${nextQ.verb}|${nextQ.pronoun}`;
         const nextMode: PracticeMode = forceFillIn || nextTyping ? "fill-in-the-blank" : "multiple-choice";
         setMode(nextMode);
@@ -456,7 +500,8 @@ export function ConjugationPractice({
     const avoidVerb = currentQuestion?.verb ?? lastClassicVerb;
     const { pair: nextPair, remainingQueue } = pickClassicVerbTensePair(
       classicVerbTenseQueue,
-      avoidVerb ?? null
+      avoidVerb ?? null,
+      streak
     );
     setLastClassicVerb(nextPair.verb);
     setClassicVerbTenseQueue(remainingQueue);
@@ -486,6 +531,7 @@ export function ConjugationPractice({
     classicVerbTenseQueue,
     pickClassicVerbTensePair,
     competitiveMode,
+    streak,
   ]);
 
   useEffect(() => {
@@ -496,10 +542,14 @@ export function ConjugationPractice({
   useEffect(() => {
     if (currentQuestion !== null || gameState !== "playing") return;
     if (gameMode === "classic") {
-      const initialQueue = shuffleArray(classicVerbTensePairs);
-      const firstPair = initialQueue[0];
+      const verb = pickWeightedVerb(0, null);
+      const verbPairs = classicVerbTensePairs.filter((p) => p.verb === verb);
+      const firstPair =
+        verbPairs.length > 0
+          ? verbPairs[Math.floor(Math.random() * verbPairs.length)]
+          : classicVerbTensePairs[0];
       const firstPronounKey = getClassicPronounKey(firstPair.verb, firstPair.tense, 0);
-      setClassicVerbTenseQueue(initialQueue.slice(1));
+      setClassicVerbTenseQueue([]);
       setLastClassicVerb(firstPair.verb);
       setClassicCycleIndex(0);
       if (firstPronounKey) {
@@ -511,7 +561,7 @@ export function ConjugationPractice({
         );
       }
     } else {
-      const firstQ = pickRandomQuestion([]);
+      const firstQ = pickRandomQuestion([], 0);
       setRecentRandomPairs([`${firstQ.verb}|${firstQ.pronoun}`]);
       setCurrentQuestion(getQuestionDetails(firstQ, "multiple-choice"));
     }
