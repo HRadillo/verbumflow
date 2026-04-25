@@ -17,7 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowRight, Flame, Star, CheckCircle, Zap } from "lucide-react";
+import { ArrowRight, Flame, Star, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -217,6 +217,8 @@ export function ConjugationPractice({
   // last correct answer — shown in loss overlay
   const [lastCorrectAnswer, setLastCorrectAnswer] = useState<string | null>(null);
   const [lossRuleHint, setLossRuleHint] = useState<string | null>(null);
+  const [lossVerb, setLossVerb] = useState<string | null>(null);
+  const [lossTense, setLossTense] = useState<string | null>(null);
   const [lossSessionStats, setLossSessionStats] = useState<SessionStats | null>(null);
   const [classicCycleIndex, setClassicCycleIndex] = useState(0);
   const [classicVerbTenseQueue, setClassicVerbTenseQueue] = useState<
@@ -226,7 +228,8 @@ export function ConjugationPractice({
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const prepareNextStageRef = useRef<() => void>(() => {});
-  const hasShownRecordOverlayRef = useRef(false);
+  const hasShownRecordOverlayClassic = useRef(false);
+  const hasShownRecordOverlayRandom = useRef(false);
   const totalAnsweredThisSessionRef = useRef(0);
   const questionStartTimeRef = useRef<number | null>(null);
   const answerTimeSumRef = useRef(0);
@@ -699,7 +702,8 @@ export function ConjugationPractice({
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    hasShownRecordOverlayRef.current = false;
+    hasShownRecordOverlayClassic.current = false;
+    hasShownRecordOverlayRandom.current = false;
     totalAnsweredThisSessionRef.current = 0;
     questionStartTimeRef.current = null;
     answerTimeSumRef.current = 0;
@@ -719,6 +723,8 @@ export function ConjugationPractice({
     setCurrentQuestionIsTyping(false);
     setLastCorrectAnswer(null);
     setLossRuleHint(null);
+    setLossVerb(null);
+    setLossTense(null);
     setLossSessionStats(null);
     setClassicCycleIndex(0);
     setClassicVerbTenseQueue([]);
@@ -740,7 +746,8 @@ export function ConjugationPractice({
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    hasShownRecordOverlayRef.current = false;
+    hasShownRecordOverlayClassic.current = false;
+    hasShownRecordOverlayRandom.current = false;
     totalAnsweredThisSessionRef.current = 0;
     questionStartTimeRef.current = null;
     answerTimeSumRef.current = 0;
@@ -774,7 +781,8 @@ export function ConjugationPractice({
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    hasShownRecordOverlayRef.current = false;
+    hasShownRecordOverlayClassic.current = false;
+    hasShownRecordOverlayRandom.current = false;
     totalAnsweredThisSessionRef.current = 0;
     questionStartTimeRef.current = null;
     answerTimeSumRef.current = 0;
@@ -846,6 +854,8 @@ export function ConjugationPractice({
       setLastCorrectAnswer(currentQuestion?.correctAnswer ?? null);
       const { rule, tip } = getRule(currentQuestion?.verb ?? "", currentQuestion?.tense ?? "");
       setLossRuleHint(rule || tip || null);
+      setLossVerb(currentQuestion?.verb ?? null);
+      setLossTense(currentQuestion?.tense ?? null);
       setLossSessionStats(buildLossSessionStats(streak));
       setGameState("lost");
     } else {
@@ -863,6 +873,18 @@ export function ConjugationPractice({
       }
     }
 
+    // Per-mode record overlay — fires synchronously, independently per game mode
+    if (!practiceOnly && isCorrect && onStreakRecord) {
+      const relevantRef = gameMode === "classic" ? hasShownRecordOverlayClassic : hasShownRecordOverlayRandom;
+      const previousBest = gameMode === "classic"
+        ? (user ? (userStats?.classicLongestStreak ?? 0) : classicLocalBestRef.current)
+        : (user ? (userStats?.randomLongestStreak ?? 0) : randomLocalBestRef.current);
+      if (!relevantRef.current && newStreak > previousBest) {
+        relevantRef.current = true;
+        onStreakRecord("personal");
+      }
+    }
+
     if (competitiveMode && user) {
       recordAnswer(user.uid, isCorrect, newStreak, gameMode)
         .then((result) => {
@@ -873,9 +895,7 @@ export function ConjugationPractice({
               return { ...prev, ...updates } as UserStats;
             });
           }
-          if (isNewPersonalRecord && onStreakRecord && !hasShownRecordOverlayRef.current) {
-            hasShownRecordOverlayRef.current = true;
-            onStreakRecord("personal");
+          if (isNewPersonalRecord && onStreakRecord) {
             const sortField =
               gameMode === "classic"
                 ? "classicLongestStreak"
@@ -908,6 +928,8 @@ export function ConjugationPractice({
     if (currentQuestion) {
       const { rule, tip } = getRule(currentQuestion.verb, currentQuestion.tense);
       setLossRuleHint(rule || tip || null);
+      setLossVerb(currentQuestion.verb);
+      setLossTense(currentQuestion.tense);
     }
     setLossSessionStats(buildLossSessionStats(lastStreakValue));
     setIsAnswered(false);
@@ -1183,6 +1205,19 @@ export function ConjugationPractice({
               ? `${lastStreakValue} in a row — not bad.`
               : "You'll get it next time."}
           </p>
+          {lossVerb && lossTense && (
+            <p
+              className="text-sm font-semibold"
+              style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                color: "rgba(11,16,32,0.7)",
+              }}
+            >
+              {lossVerb}
+              {' · '}
+              {lossTense}
+            </p>
+          )}
           {lastCorrectAnswer && (
             <div className="mt-3 text-center">
               <p
@@ -1213,7 +1248,7 @@ export function ConjugationPractice({
           )}
           {lossSessionStats && (
             <div className="bg-white/5 rounded-xl px-4 py-3 my-4" style={{ border: "1px solid rgba(31,75,255,0.1)" }}>
-              <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="flex flex-col items-center gap-1">
                   <Flame size={16} style={{ color: "#1F4BFF" }} />
                   <span
@@ -1242,21 +1277,6 @@ export function ConjugationPractice({
                     style={{ fontFamily: "'JetBrains Mono', monospace", color: "rgba(11,16,32,0.5)" }}
                   >
                     Personal best
-                  </span>
-                </div>
-                <div className="flex flex-col items-center gap-1">
-                  <CheckCircle size={16} style={{ color: "#1F4BFF" }} />
-                  <span
-                    className="font-bold text-lg"
-                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "#0B1020" }}
-                  >
-                    {lossSessionStats.totalAnsweredThisSession}
-                  </span>
-                  <span
-                    className="text-xs uppercase"
-                    style={{ fontFamily: "'JetBrains Mono', monospace", color: "rgba(11,16,32,0.5)" }}
-                  >
-                    Answered
                   </span>
                 </div>
                 <div className="flex flex-col items-center gap-1">
