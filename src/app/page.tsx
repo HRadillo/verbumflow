@@ -7,6 +7,8 @@ import { Leaderboard } from "@/app/components/leaderboard";
 import { Onboarding } from "@/app/components/onboarding";
 import { Felicitations } from "@/app/components/felicitations";
 import { StudyMode } from "@/app/components/study-mode";
+import { UsernameSetup } from "@/app/components/username-setup";
+import { FriendsPanel } from "@/app/components/friends-panel";
 import { useAuth } from "@/contexts/auth-context";
 import { useState, useEffect, useCallback } from "react";
 import { initializeUserStats, type UserStats } from "@/lib/firestore";
@@ -16,6 +18,8 @@ export default function Home() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showStudyMode, setShowStudyMode] = useState(false);
+  const [showFriendsPanel, setShowFriendsPanel] = useState(false);
+  const [needsUsername, setNeedsUsername] = useState(false);
   const [felicitationsType, setFelicitationsType] = useState<
     "personal" | "global" | null
   >(null);
@@ -37,10 +41,16 @@ export default function Home() {
         user.uid,
         user.displayName ?? "Anonymous",
         user.photoURL
-      ).then(setUserStats);
+      ).then((stats) => {
+        setUserStats(stats);
+        if (!stats.username) {
+          setNeedsUsername(true);
+        }
+      });
     } else {
       // Guest: show onboarding every session (no localStorage flag)
       setUserStats(null);
+      setNeedsUsername(false);
       const onboarded =
         typeof window !== "undefined"
           ? localStorage.getItem("vf_onboarded")
@@ -67,6 +77,10 @@ export default function Home() {
 
   const handleOpenStudy = useCallback(() => {
     setShowStudyMode(true);
+  }, []);
+
+  const handleOpenFriends = useCallback(() => {
+    setShowFriendsPanel(true);
   }, []);
 
   // Auto-dismiss interrupt if game is no longer playing
@@ -186,6 +200,7 @@ export default function Home() {
             onShowOnboarding={() => setShowOnboarding(true)}
             onBackToMenu={handleHomeClick}
             onOpenStudy={handleOpenStudy}
+            onOpenFriends={handleOpenFriends}
             activeScreen={activeScreen}
           />
         </div>
@@ -221,6 +236,19 @@ export default function Home() {
           Donate
         </a>
       </footer>
+
+      {/* Username setup modal — shown after first sign-in */}
+      {needsUsername && user && (
+        <UsernameSetup
+          onComplete={(username) => {
+            setNeedsUsername(false);
+            setUserStats((prev) => prev ? { ...prev, username } : prev);
+          }}
+        />
+      )}
+
+      {/* Friends panel */}
+      <FriendsPanel open={showFriendsPanel} onOpenChange={setShowFriendsPanel} />
 
       {/* Leaderboard modal */}
       <Leaderboard open={showLeaderboard} onOpenChange={setShowLeaderboard} />

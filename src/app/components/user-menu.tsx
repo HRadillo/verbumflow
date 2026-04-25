@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { type LucideIcon, LogIn, LogOut, User, Trophy, CircleHelp, House, BookOpen, Share2 } from "lucide-react";
+import { type LucideIcon, LogIn, LogOut, User, Users, Trophy, CircleHelp, House, BookOpen, Share2 } from "lucide-react";
 
 type ActiveScreen = "home" | "leaderboard" | "study" | "help";
 
@@ -21,6 +21,7 @@ type UserMenuProps = {
   onShowOnboarding?: () => void;
   onBackToMenu?: () => void;
   onOpenStudy?: () => void;
+  onOpenFriends?: () => void;
   activeScreen?: ActiveScreen;
 };
 
@@ -36,6 +37,7 @@ export function UserMenu({
   onShowOnboarding,
   onBackToMenu,
   onOpenStudy,
+  onOpenFriends,
   activeScreen = "home",
 }: UserMenuProps) {
   const { user, signInWithGoogle, signOut, isGuest, loading } = useAuth();
@@ -51,6 +53,10 @@ export function UserMenu({
     { icon: Share2, label: "Challenge a friend", onClick: handleChallengeFriend },
     { icon: CircleHelp, label: "How to play", onClick: onShowOnboarding, screen: "help" },
     { icon: Trophy, label: "Leaderboard", onClick: onShowLeaderboard, screen: "leaderboard" },
+    // Friends icon — only for signed-in users
+    ...(user && onOpenFriends
+      ? [{ icon: Users as LucideIcon, label: "Friends", onClick: onOpenFriends }]
+      : []),
   ];
 
   if (loading) {

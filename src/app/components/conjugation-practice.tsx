@@ -8,6 +8,7 @@ import {
   allConjugations,
   getRule,
 } from "@/lib/verbs";
+import { seededRandom } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -53,6 +54,13 @@ type CurrentQuestion = Question & {
   tip: string | null;
 };
 
+type DuelMode = {
+  duelId: string;
+  totalQuestions: 20;
+  verbSeed: number;
+  onComplete: (score: number) => void;
+};
+
 type ConjugationPracticeProps = {
   onNextQuestion: () => void;
   onStatsUpdate?: React.Dispatch<React.SetStateAction<UserStats | null>>;
@@ -63,6 +71,7 @@ type ConjugationPracticeProps = {
   onHomeInterruptDismiss?: () => void;
   onGoHome?: () => void;
   onGameStateChange?: (state: GameState) => void;
+  duelMode?: DuelMode;
 };
 
 const TIMER_DURATION = 15;
@@ -186,9 +195,10 @@ export function ConjugationPractice({
   onHomeInterruptDismiss,
   onGoHome,
   onGameStateChange,
+  duelMode,
 }: ConjugationPracticeProps) {
   const [gameState, setGameState] = useState<GameState>(
-    practiceOnly ? "playing" : "idle"
+    practiceOnly || duelMode ? "playing" : "idle"
   );
   const [lastStreakValue, setLastStreakValue] = useState(0);
   const [gameMode, setGameMode] = useState<GameMode>("classic");
@@ -225,6 +235,11 @@ export function ConjugationPractice({
     { verb: string; tense: string }[]
   >([]);
 
+  // Duel mode state
+  const [duelQuestionIndex, setDuelQuestionIndex] = useState(0);
+  const [duelScore, setDuelScore] = useState(0);
+  const duelQuestionsRef = useRef<Question[]>([]);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const prepareNextStageRef = useRef<() => void>(() => {});
@@ -238,7 +253,7 @@ export function ConjugationPractice({
   const randomLocalBestRef = useRef(0);
   const { user } = useAuth();
 
-  const timerEnabled = !practiceOnly && competitiveMode;
+  const timerEnabled = !practiceOnly && !duelMode && competitiveMode;
 
   const getQuestionDetails = useCallback(
     (question: Question, currentMode: PracticeMode): CurrentQuestion | null => {
@@ -370,6 +385,22 @@ export function ConjugationPractice({
     setIsAnswered(false);
     setIsTimedOut(false);
     onNextQuestion();
+
+    // Duel mode: advance through pre-generated question list
+    if (duelMode) {
+      const nextIndex = duelQuestionIndex + 1;
+      if (nextIndex >= duelMode.totalQuestions) {
+        duelMode.onComplete(duelScore);
+        return;
+      }
+      setDuelQuestionIndex(nextIndex);
+      const nextQ = duelQuestionsRef.current[nextIndex];
+      if (nextQ) {
+        setCurrentQuestion(getQuestionDetails(nextQ, "multiple-choice"));
+      }
+      setKey((prev) => prev + 1);
+      return;
+    }
 
     // practiceOnly: always multiple-choice, no fill-in drills
     if (practiceOnly) {
@@ -535,6 +566,9 @@ export function ConjugationPractice({
     pickClassicVerbTensePair,
     competitiveMode,
     streak,
+    duelMode,
+    duelQuestionIndex,
+    duelScore,
   ]);
 
   useEffect(() => {
@@ -544,6 +578,23 @@ export function ConjugationPractice({
   // Initialize first question — only when actively playing
   useEffect(() => {
     if (currentQuestion !== null || gameState !== "playing") return;
+
+    // Duel mode: generate seeded questions and show first one
+    if (duelMode) {
+      if (duelQuestionsRef.current.length === 0) {
+        const rng = seededRandom(duelMode.verbSeed);
+        const qs: Question[] = [];
+        for (let i = 0; i < duelMode.totalQuestions; i++) {
+          const idx = Math.floor(rng() * allPossibleQuestions.length);
+          qs.push(allPossibleQuestions[idx]);
+        }
+        duelQuestionsRef.current = qs;
+      }
+      const firstQ = duelQuestionsRef.current[0];
+      if (firstQ) setCurrentQuestion(getQuestionDetails(firstQ, "multiple-choice"));
+      return;
+    }
+
     if (gameMode === "classic") {
       const verb = pickWeightedVerb(0, null);
       const verbPairs = classicVerbTensePairs.filter((p) => p.verb === verb);
@@ -568,7 +619,7 @@ export function ConjugationPractice({
       setRecentRandomPairs([`${firstQ.verb}|${firstQ.pronoun}`]);
       setCurrentQuestion(getQuestionDetails(firstQ, "multiple-choice"));
     }
-  }, [currentQuestion, gameMode, gameState, getQuestionDetails, pickRandomQuestion]);
+  }, [currentQuestion, gameMode, gameState, getQuestionDetails, pickRandomQuestion, duelMode]);
 
   // Timer: reset and run on each new question, pause when answered or not playing
   useEffect(() => {
@@ -848,6 +899,12 @@ export function ConjugationPractice({
       return;
     }
 
+    if (duelMode) {
+      if (isCorrect) setDuelScore((s) => s + 1);
+      // In duel mode, wrong answers don't end the game — advance via Next
+      return;
+    }
+
     if (!isCorrect) {
       setLastStreakValue(streak);
       setStreak(0);
@@ -994,13 +1051,23 @@ export function ConjugationPractice({
     return currentQuestion?.pronoun;
   })();
 
-  // Determine which input mode to show (force multiple-choice in practiceOnly)
-  const displayMode: PracticeMode = practiceOnly ? "multiple-choice" : mode;
+  // Determine which input mode to show (force multiple-choice in practiceOnly and duelMode)
+  const displayMode: PracticeMode = practiceOnly || duelMode ? "multiple-choice" : mode;
 
   return (
     <div className="space-y-3">
-      {/* Streak display — hidden in practiceOnly */}
-      {!practiceOnly && (
+      {/* Duel mode: question progress */}
+      {duelMode && (
+        <div
+          className="text-center text-white font-bold text-lg drop-shadow-md"
+          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+        >
+          Question {duelQuestionIndex + 1} / {duelMode.totalQuestions}
+        </div>
+      )}
+
+      {/* Streak display — hidden in practiceOnly and duelMode */}
+      {!practiceOnly && !duelMode && (
         <div className="flex justify-center items-center gap-2 text-white font-bold text-xl drop-shadow-md">
           <Flame
             className={cn(
@@ -1022,8 +1089,8 @@ export function ConjugationPractice({
         </div>
       )}
 
-      {/* Game mode selector */}
-      <div className="flex items-center justify-center gap-2">
+      {/* Game mode selector — hidden in duelMode */}
+      {!duelMode && <div className="flex items-center justify-center gap-2">
         <button
           onClick={() => handleSwitchGameMode("classic")}
           className={cn(
@@ -1048,10 +1115,10 @@ export function ConjugationPractice({
         >
           🎲 Random
         </button>
-      </div>
+      </div>}
 
-      {/* Competitive / Casual toggle — hidden in practiceOnly */}
-      {!practiceOnly && (
+      {/* Competitive / Casual toggle — hidden in practiceOnly and duelMode */}
+      {!practiceOnly && !duelMode && (
         <div className="flex items-center justify-center gap-3">
           <button
             onClick={() => handleSwitchCompetitiveMode(true)}
@@ -1099,8 +1166,8 @@ export function ConjugationPractice({
         </p>
       )}
 
-      {/* START OVERLAY — hidden in practiceOnly */}
-      {!practiceOnly && gameState === "idle" && (
+      {/* START OVERLAY — hidden in practiceOnly and duelMode */}
+      {!practiceOnly && !duelMode && gameState === "idle" && (
         <div
           className="rounded-2xl shadow-xl p-8 text-center space-y-4 animate-in fade-in-0 zoom-in-95"
           style={{
@@ -1174,8 +1241,8 @@ export function ConjugationPractice({
         </div>
       )}
 
-      {/* LOSS OVERLAY — hidden in practiceOnly */}
-      {!practiceOnly && gameState === "lost" && (
+      {/* LOSS OVERLAY — hidden in practiceOnly and duelMode */}
+      {!practiceOnly && !duelMode && gameState === "lost" && (
         <div
           className="rounded-2xl shadow-xl p-8 text-center space-y-4 animate-in fade-in-0 zoom-in-95"
           style={{
@@ -1367,7 +1434,7 @@ export function ConjugationPractice({
       )}
 
       {/* GAME CARD */}
-      {(practiceOnly || gameState === "playing") && !showHomeInterrupt && (
+      {(practiceOnly || duelMode || gameState === "playing") && !showHomeInterrupt && (
         currentQuestion ? (
           <Card
             key={key}
@@ -1650,8 +1717,8 @@ export function ConjugationPractice({
                   Next <ArrowRight className="h-4 w-4" />
                 </Button>
               )}
-              {/* Next in practiceOnly wrong answer */}
-              {practiceOnly && isAnswered && feedback === "incorrect" && (
+              {/* Next in practiceOnly or duelMode wrong answer */}
+              {(practiceOnly || duelMode) && isAnswered && feedback === "incorrect" && (
                 <Button
                   onClick={handlePracticeOnlyNext}
                   className="gap-2 animate-in fade-in-50 bg-[#FF6A4D] hover:bg-[#D95A3F] text-white"
