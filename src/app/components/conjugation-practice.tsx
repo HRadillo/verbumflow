@@ -17,7 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowRight, Flame } from "lucide-react";
+import { ArrowRight, Flame, Star, CheckCircle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,13 @@ import {
 type Feedback = "correct" | "incorrect" | null;
 type PracticeMode = "multiple-choice" | "fill-in-the-blank";
 type GameState = "idle" | "playing" | "lost";
+
+type SessionStats = {
+  streakJustAchieved: number;
+  personalBest: number;
+  totalAnsweredThisSession: number;
+  avgAnswerTimeSeconds: number | null;
+};
 
 type Question = {
   verb: string;
@@ -190,6 +197,7 @@ export function ConjugationPractice({
   // last correct answer — shown in loss overlay
   const [lastCorrectAnswer, setLastCorrectAnswer] = useState<string | null>(null);
   const [lossRuleHint, setLossRuleHint] = useState<string | null>(null);
+  const [lossSessionStats, setLossSessionStats] = useState<SessionStats | null>(null);
   const [classicCycleIndex, setClassicCycleIndex] = useState(0);
   const [classicVerbTenseQueue, setClassicVerbTenseQueue] = useState<
     { verb: string; tense: string }[]
@@ -198,6 +206,13 @@ export function ConjugationPractice({
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const prepareNextStageRef = useRef<() => void>(() => {});
+  const hasShownRecordOverlayRef = useRef(false);
+  const totalAnsweredThisSessionRef = useRef(0);
+  const questionStartTimeRef = useRef<number | null>(null);
+  const answerTimeSumRef = useRef(0);
+  const answerTimeCountRef = useRef(0);
+  const classicLocalBestRef = useRef(0);
+  const randomLocalBestRef = useRef(0);
   const { user } = useAuth();
 
   const timerEnabled = !practiceOnly && competitiveMode;
@@ -534,6 +549,10 @@ export function ConjugationPractice({
   useEffect(() => {
     if (timeLeft !== 0 || isAnswered || !currentQuestion || !timerEnabled) return;
 
+    // Count the timeout as an answered question
+    totalAnsweredThisSessionRef.current += 1;
+    questionStartTimeRef.current = null;
+
     setIsAnswered(true);
     setFeedback("incorrect");
     setIsTimedOut(true);
@@ -559,6 +578,13 @@ export function ConjugationPractice({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft]);
 
+  // Track question start time for avg answer time (competitive mode only)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!competitiveMode || gameState !== "playing" || !currentQuestion) return;
+    questionStartTimeRef.current = Date.now();
+  }, [key]); // intentional: only reset on new question (key change)
+
   // Focus fill-in-blank input
   useEffect(() => {
     if (mode === "fill-in-the-blank" && inputRef.current) {
@@ -572,6 +598,36 @@ export function ConjugationPractice({
     const id = setTimeout(() => setPendingModeSwitch(null), 3000);
     return () => clearTimeout(id);
   }, [pendingModeSwitch]);
+
+  const buildLossSessionStats = (streakJustAchieved: number): SessionStats => {
+    let personalBest: number;
+    if (user) {
+      const currentBest =
+        gameMode === "classic"
+          ? (userStats?.classicLongestStreak ?? 0)
+          : (userStats?.randomLongestStreak ?? 0);
+      personalBest = Math.max(currentBest, streakJustAchieved);
+    } else {
+      const localBestRef =
+        gameMode === "classic" ? classicLocalBestRef : randomLocalBestRef;
+      if (streakJustAchieved > localBestRef.current) {
+        localBestRef.current = streakJustAchieved;
+      }
+      personalBest = localBestRef.current;
+    }
+    const avg =
+      competitiveMode && answerTimeCountRef.current > 0
+        ? Math.round(
+            (answerTimeSumRef.current / answerTimeCountRef.current) * 10
+          ) / 10
+        : null;
+    return {
+      streakJustAchieved,
+      personalBest,
+      totalAnsweredThisSession: totalAnsweredThisSessionRef.current,
+      avgAnswerTimeSeconds: avg,
+    };
+  };
 
   const handleStartStreak = () => {
     setCurrentQuestion(null);
@@ -593,6 +649,11 @@ export function ConjugationPractice({
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    hasShownRecordOverlayRef.current = false;
+    totalAnsweredThisSessionRef.current = 0;
+    questionStartTimeRef.current = null;
+    answerTimeSumRef.current = 0;
+    answerTimeCountRef.current = 0;
     setGameState("idle");
     setStreak(0);
     setCurrentQuestion(null);
@@ -608,6 +669,7 @@ export function ConjugationPractice({
     setCurrentQuestionIsTyping(false);
     setLastCorrectAnswer(null);
     setLossRuleHint(null);
+    setLossSessionStats(null);
     setClassicCycleIndex(0);
     setClassicVerbTenseQueue([]);
   };
@@ -628,6 +690,11 @@ export function ConjugationPractice({
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    hasShownRecordOverlayRef.current = false;
+    totalAnsweredThisSessionRef.current = 0;
+    questionStartTimeRef.current = null;
+    answerTimeSumRef.current = 0;
+    answerTimeCountRef.current = 0;
     setGameMode(newMode);
     setGameState(practiceOnly ? "playing" : "idle");
     setStreak(0);
@@ -646,6 +713,7 @@ export function ConjugationPractice({
     setShowLevelUp(false);
     setHasShownLevelUp(false);
     setCurrentQuestionIsTyping(false);
+    setLossSessionStats(null);
     setClassicCycleIndex(0);
     setClassicVerbTenseQueue([]);
   };
@@ -656,6 +724,11 @@ export function ConjugationPractice({
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    hasShownRecordOverlayRef.current = false;
+    totalAnsweredThisSessionRef.current = 0;
+    questionStartTimeRef.current = null;
+    answerTimeSumRef.current = 0;
+    answerTimeCountRef.current = 0;
     setCompetitiveMode(newCompetitive);
     setGameState("idle");
     setStreak(0);
@@ -674,6 +747,7 @@ export function ConjugationPractice({
     setShowLevelUp(false);
     setHasShownLevelUp(false);
     setCurrentQuestionIsTyping(false);
+    setLossSessionStats(null);
     setClassicCycleIndex(0);
     setClassicVerbTenseQueue([]);
   };
@@ -690,6 +764,16 @@ export function ConjugationPractice({
 
   const handleAnswer = (answer: string) => {
     if (isAnswered) return;
+
+    // Track answer time (competitive mode only)
+    if (competitiveMode && questionStartTimeRef.current !== null) {
+      const elapsed = (Date.now() - questionStartTimeRef.current) / 1000;
+      answerTimeSumRef.current += elapsed;
+      answerTimeCountRef.current += 1;
+      questionStartTimeRef.current = null;
+    }
+    // Count every answered question
+    totalAnsweredThisSessionRef.current += 1;
 
     const isCorrect =
       answer.trim().toLowerCase() ===
@@ -712,6 +796,7 @@ export function ConjugationPractice({
       setLastCorrectAnswer(currentQuestion?.correctAnswer ?? null);
       const { rule, tip } = getRule(currentQuestion?.verb ?? "", currentQuestion?.tense ?? "");
       setLossRuleHint(rule || tip || null);
+      setLossSessionStats(buildLossSessionStats(streak));
       setGameState("lost");
     } else {
       setStreak(newStreak);
@@ -738,7 +823,8 @@ export function ConjugationPractice({
               return { ...prev, ...updates } as UserStats;
             });
           }
-          if (isNewPersonalRecord && onStreakRecord) {
+          if (isNewPersonalRecord && onStreakRecord && !hasShownRecordOverlayRef.current) {
+            hasShownRecordOverlayRef.current = true;
             onStreakRecord("personal");
             const sortField =
               gameMode === "classic"
@@ -773,6 +859,7 @@ export function ConjugationPractice({
       const { rule, tip } = getRule(currentQuestion.verb, currentQuestion.tense);
       setLossRuleHint(rule || tip || null);
     }
+    setLossSessionStats(buildLossSessionStats(lastStreakValue));
     setIsAnswered(false);
     setIsTimedOut(false);
     setFeedback(null);
@@ -1073,6 +1160,74 @@ export function ConjugationPractice({
             >
               {lossRuleHint}
             </p>
+          )}
+          {lossSessionStats && (
+            <div className="bg-white/5 rounded-xl px-4 py-3 my-4" style={{ border: "1px solid rgba(31,75,255,0.1)" }}>
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="flex flex-col items-center gap-1">
+                  <Flame size={16} style={{ color: "#1F4BFF" }} />
+                  <span
+                    className="font-bold text-lg"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "#0B1020" }}
+                  >
+                    {lossSessionStats.streakJustAchieved}
+                  </span>
+                  <span
+                    className="text-xs uppercase"
+                    style={{ fontFamily: "'JetBrains Mono', monospace", color: "rgba(11,16,32,0.5)" }}
+                  >
+                    This round
+                  </span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <Star size={16} style={{ color: "#1F4BFF" }} />
+                  <span
+                    className="font-bold text-lg"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "#0B1020" }}
+                  >
+                    {lossSessionStats.personalBest}
+                  </span>
+                  <span
+                    className="text-xs uppercase"
+                    style={{ fontFamily: "'JetBrains Mono', monospace", color: "rgba(11,16,32,0.5)" }}
+                  >
+                    Personal best
+                  </span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <CheckCircle size={16} style={{ color: "#1F4BFF" }} />
+                  <span
+                    className="font-bold text-lg"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "#0B1020" }}
+                  >
+                    {lossSessionStats.totalAnsweredThisSession}
+                  </span>
+                  <span
+                    className="text-xs uppercase"
+                    style={{ fontFamily: "'JetBrains Mono', monospace", color: "rgba(11,16,32,0.5)" }}
+                  >
+                    Answered
+                  </span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <Zap size={16} style={{ color: "#1F4BFF" }} />
+                  <span
+                    className="font-bold text-lg"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "#0B1020" }}
+                  >
+                    {lossSessionStats.avgAnswerTimeSeconds !== null
+                      ? `${lossSessionStats.avgAnswerTimeSeconds}s`
+                      : "—"}
+                  </span>
+                  <span
+                    className="text-xs uppercase"
+                    style={{ fontFamily: "'JetBrains Mono', monospace", color: "rgba(11,16,32,0.5)" }}
+                  >
+                    {lossSessionStats.avgAnswerTimeSeconds !== null ? "Avg time" : "No timer"}
+                  </span>
+                </div>
+              </div>
+            </div>
           )}
           <button
             onClick={handleTryAgain}
