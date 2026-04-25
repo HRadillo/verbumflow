@@ -1,5 +1,5 @@
 // src/app/layout.tsx
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
@@ -10,8 +10,14 @@ export const metadata: Metadata = {
   description:
     "Master French verb conjugations with interactive flashcards. Practice présent, imparfait, futur, passé composé and more.",
   manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
   themeColor: "#0B1020",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
 };
 
 export default function RootLayout({
