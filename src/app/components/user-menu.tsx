@@ -87,18 +87,24 @@ export function UserMenu({
   if (loading) {
     return (
       <>
-        <div className="flex justify-center gap-8">
+        <div className="mx-auto flex w-full max-w-sm items-center justify-center gap-3 px-3 sm:gap-4 sm:px-4">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="h-11 w-11 rounded-full bg-white/10 animate-pulse" />
           ))}
         </div>
-        <div className="fixed top-3 right-3 z-50 h-10 w-10 rounded-full bg-white/20 animate-pulse" />
+        <div
+          className="fixed z-50 h-11 w-11 rounded-full bg-white/20 animate-pulse"
+          style={{
+            top: "calc(env(safe-area-inset-top, 0px) + 12px)",
+            right: "calc(env(safe-area-inset-right, 0px) + 12px)",
+          }}
+        />
       </>
     );
   }
 
   const navRow = (
-    <div className="flex justify-center gap-8 items-center">
+    <div className="mx-auto flex w-full max-w-sm items-center justify-center gap-3 px-3 sm:gap-4 sm:px-4">
       {navItems.map(({ icon: Icon, label, onClick, screen }) => {
         if (!onClick) return null;
         const isActive = screen !== undefined && activeScreen === screen;
@@ -106,7 +112,7 @@ export function UserMenu({
           <button
             key={label}
             onClick={onClick}
-            className="p-3 rounded-full text-white hover:bg-white/10 transition-colors"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-white hover:bg-white/10 transition-colors"
             style={{ opacity: isActive ? 1 : 0.4 }}
             title={label}
             aria-label={label}
@@ -121,7 +127,7 @@ export function UserMenu({
         <div className="relative">
           <button
             onClick={() => setFriendsPanelOpen(true)}
-            className="p-3 rounded-full text-white hover:bg-white/10 transition-colors"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-white hover:bg-white/10 transition-colors"
             style={{ opacity: friendsPanelOpen ? 1 : 0.4 }}
             title="Friends"
             aria-label="Friends"
@@ -144,7 +150,11 @@ export function UserMenu({
   const avatarEl = isGuest ? (
     <button
       onClick={signInWithGoogle}
-      className="fixed top-3 right-3 z-50 h-10 w-10 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors focus:outline-none"
+      className="fixed z-50 flex h-11 w-11 items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors focus:outline-none"
+      style={{
+        top: "calc(env(safe-area-inset-top, 0px) + 12px)",
+        right: "calc(env(safe-area-inset-right, 0px) + 12px)",
+      }}
       title="Sign in with Google"
       aria-label="Sign in with Google"
     >
@@ -154,7 +164,11 @@ export function UserMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="fixed top-3 right-3 z-50 h-10 w-10 rounded-full border-2 border-white/30 overflow-hidden hover:border-white/60 transition-colors focus:outline-none"
+          className="fixed z-50 h-11 w-11 overflow-hidden rounded-full border-2 border-white/30 transition-colors hover:border-white/60 focus:outline-none"
+          style={{
+            top: "calc(env(safe-area-inset-top, 0px) + 12px)",
+            right: "calc(env(safe-area-inset-right, 0px) + 12px)",
+          }}
           title={user?.displayName ?? "Account"}
           aria-label="Account menu"
         >
