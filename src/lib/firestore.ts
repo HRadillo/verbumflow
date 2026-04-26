@@ -249,6 +249,10 @@ export async function claimHandle(
         throw new Error("taken");
       }
 
+      if (usernameSnap.exists() && usernameSnap.data()?.uid !== uid) {
+        throw new Error("taken");
+      }
+
       if (!handleSnap.exists()) {
         tx.set(handleRef, { uid, createdAt: serverTimestamp() });
       }

@@ -49,9 +49,10 @@ export function UsernameSetup({ onComplete }: Props) {
     setError(null);
     setSubmitting(true);
     try {
-      const result = await claimHandle(user.uid, value);
+      const normalizedValue = value.toLowerCase();
+      const result = await claimHandle(user.uid, normalizedValue);
       if (result === "ok") {
-        onComplete(value);
+        onComplete(normalizedValue);
         return;
       }
       if (result === "taken") {
