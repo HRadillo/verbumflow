@@ -30,6 +30,14 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Handles — immutable once created, readable for uniqueness checks
+    match /handles/{handle} {
+      allow read: if true;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
     // Duels — participants can read and update their own duels
     match /duels/{duelId} {
       allow read: if request.auth != null

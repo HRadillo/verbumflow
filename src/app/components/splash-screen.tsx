@@ -12,11 +12,17 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   const [showEntry, setShowEntry] = useState(false);
 
   useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     // Switch to entry screen when splash fade-out ends (3.6s delay + 0.8s duration)
     const timer = setTimeout(() => {
       setShowEntry(true);
     }, 4400);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      document.body.style.overflow = previousOverflow;
+    };
   }, []);
 
   if (showEntry) {
@@ -26,6 +32,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6"
+      aria-hidden="true"
       style={{
         background:
           "radial-gradient(ellipse at 0% 0%, rgba(31,75,255,0.15) 0%, transparent 50%), radial-gradient(ellipse at 100% 100%, rgba(255,106,77,0.15) 0%, transparent 50%), #0B1020",

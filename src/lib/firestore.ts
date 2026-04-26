@@ -52,6 +52,7 @@ export type UserStats = {
   displayName: string;
   photoURL: string | null;
   username?: string;
+  handle?: string;
   duelsWon?: number;
   duelsLost?: number;
   totalCorrect: number;
@@ -216,6 +217,59 @@ export async function setUsername(uid: string, username: string): Promise<void> 
 export async function isUsernameTaken(username: string): Promise<boolean> {
   const snap = await getDoc(doc(db, "usernames", username.toLowerCase()));
   return snap.exists();
+}
+
+export async function isHandleTaken(handle: string): Promise<boolean> {
+  const snap = await getDoc(doc(db, "handles", handle.toLowerCase()));
+  return snap.exists();
+}
+
+export async function claimHandle(
+  uid: string,
+  handle: string
+): Promise<"ok" | "taken" | "already_has_handle" | "error"> {
+  const normalizedHandle = handle.toLowerCase();
+  const handleRef = doc(db, "handles", normalizedHandle);
+  const userRef = doc(db, "users", uid);
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const handleSnap = await tx.get(handleRef);
+      const userSnap = await tx.get(userRef);
+
+      if (userSnap.exists() && userSnap.data()?.handle) {
+        throw new Error("already_has_handle");
+      }
+
+      if (handleSnap.exists()) {
+        throw new Error("taken");
+      }
+
+      tx.set(handleRef, { uid, createdAt: serverTimestamp() });
+      tx.set(
+        userRef,
+        {
+          handle: normalizedHandle,
+          username: normalizedHandle,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    });
+
+    return "ok";
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "";
+    if (msg === "taken") return "taken";
+    if (msg === "already_has_handle") return "already_has_handle";
+    console.error("claimHandle error:", e);
+    return "error";
+  }
+}
+
+export async function getHandle(uid: string): Promise<string | null> {
+  const snap = await getDoc(doc(db, "users", uid));
+  return snap.exists() ? (snap.data()?.handle ?? null) : null;
 }
 
 export async function getUserByUsername(
