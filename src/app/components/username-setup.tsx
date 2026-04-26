@@ -60,6 +60,10 @@ export function UsernameSetup({ onComplete }: Props) {
       } else if (result === "already_has_handle") {
         const existingHandle = await getHandle(user.uid);
         onComplete(existingHandle ?? value);
+      } else if (result === "permission_denied") {
+        setError("Handle claim is blocked by Firestore rules. Please contact support.");
+      } else if (result === "auth_required") {
+        setError("Your sign-in expired. Please sign in again and retry.");
       } else {
         setError("Something went wrong. Please try again.");
       }
