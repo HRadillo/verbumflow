@@ -215,7 +215,10 @@ export function FriendsPanel({
         aria-label="Friends"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-white/10">
+        <div
+          className="flex items-center justify-between border-b border-white/10 px-5 pb-4"
+          style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 16px)" }}
+        >
           <h2
             className="text-lg font-bold text-white"
             style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
