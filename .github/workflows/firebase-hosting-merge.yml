@@ -35,7 +35,7 @@ jobs:
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_VERBUMFLOWAPP }}' > firebase-service-account.json
 
       - name: Deploy Firestore rules and indexes
-        run: npx firebase-tools deploy --only firestore:rules,firestore:indexes --project verbumflowapp --non-interactive
+        run: npx firebase-tools deploy --only firestore:rules --project verbumflowapp --non-interactive
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
 
