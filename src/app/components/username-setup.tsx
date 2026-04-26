@@ -3,13 +3,13 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { setUsername as saveUsername, isUsernameTaken } from "@/lib/firestore";
+import { claimHandle, getHandle, isHandleTaken } from "@/lib/firestore";
 
 type Props = {
   onComplete: (username: string) => void;
 };
 
-const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,20}$/;
+const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
 
 export function UsernameSetup({ onComplete }: Props) {
   const { user } = useAuth();
@@ -32,7 +32,7 @@ export function UsernameSetup({ onComplete }: Props) {
     setChecking(true);
     const timer = setTimeout(async () => {
       try {
-        const result = await isUsernameTaken(value);
+        const result = await isHandleTaken(value.toLowerCase());
         setTaken(result);
       } catch {
         setTaken(false);
@@ -49,8 +49,21 @@ export function UsernameSetup({ onComplete }: Props) {
     setError(null);
     setSubmitting(true);
     try {
-      await saveUsername(user.uid, value);
-      onComplete(value);
+      const result = await claimHandle(user.uid, value);
+      if (result === "ok") {
+        onComplete(value);
+        return;
+      }
+      if (result === "taken") {
+        setTaken(true);
+        setError("Handle taken. Try another one.");
+      } else if (result === "already_has_handle") {
+        const existingHandle = await getHandle(user.uid);
+        onComplete(existingHandle ?? value);
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
+      setSubmitting(false);
     } catch (err) {
       console.error("Username claim failed:", err);
       setError("Something went wrong. Please try again.");
@@ -98,8 +111,15 @@ export function UsernameSetup({ onComplete }: Props) {
             <input
               type="text"
               value={value}
-              onChange={(e) => setValue(e.target.value.trim())}
-              placeholder="e.g. horacioR"
+              onChange={(e) =>
+                setValue(
+                  e.target.value
+                    .toLowerCase()
+                    .replace(/[^a-z0-9_]/g, "")
+                    .trim()
+                )
+              }
+              placeholder="e.g. horacio_r"
               maxLength={20}
               autoFocus
               autoCapitalize="none"

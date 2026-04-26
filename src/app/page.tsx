@@ -12,7 +12,7 @@ import { FriendsPanel } from "@/app/components/friends-panel";
 import { SplashScreen } from "@/app/components/splash-screen";
 import { useAuth } from "@/contexts/auth-context";
 import { useState, useEffect, useCallback } from "react";
-import { initializeUserStats, type UserStats } from "@/lib/firestore";
+import { getHandle, initializeUserStats, type UserStats } from "@/lib/firestore";
 import { Heart } from "lucide-react";
 
 export default function Home() {
@@ -22,6 +22,7 @@ export default function Home() {
   const [showStudyMode, setShowStudyMode] = useState(false);
   const [showFriendsPanel, setShowFriendsPanel] = useState(false);
   const [needsUsername, setNeedsUsername] = useState(false);
+  const [currentHandle, setCurrentHandle] = useState<string | null>(null);
   const [felicitationsType, setFelicitationsType] = useState<
     "personal" | "global" | null
   >(null);
@@ -45,14 +46,21 @@ export default function Home() {
         user.photoURL
       ).then((stats) => {
         setUserStats(stats);
-        if (!stats.username) {
-          setNeedsUsername(true);
-        }
+        getHandle(user.uid)
+          .then((handle) => {
+            setCurrentHandle(handle);
+            setNeedsUsername(handle === null);
+          })
+          .catch(() => {
+            setCurrentHandle(null);
+            setNeedsUsername(true);
+          });
       });
     } else {
       // Guest: splash → entry screen handles the initial prompt
       setUserStats(null);
       setNeedsUsername(false);
+      setCurrentHandle(null);
     }
   }, [user, loading]);
 
@@ -202,6 +210,7 @@ export default function Home() {
             onOpenStudy={handleOpenStudy}
             onOpenFriends={handleOpenFriends}
             activeScreen={activeScreen}
+            handle={currentHandle}
           />
         </div>
       </div>
@@ -240,9 +249,10 @@ export default function Home() {
       {/* Username setup modal — shown after first sign-in */}
       {needsUsername && user && (
         <UsernameSetup
-          onComplete={(username) => {
+          onComplete={(handle) => {
             setNeedsUsername(false);
-            setUserStats((prev) => prev ? { ...prev, username } : prev);
+            setCurrentHandle(handle);
+            setUserStats((prev) => (prev ? { ...prev, username: handle, handle } : prev));
           }}
         />
       )}

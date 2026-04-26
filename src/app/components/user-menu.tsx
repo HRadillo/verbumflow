@@ -23,6 +23,7 @@ type UserMenuProps = {
   onOpenStudy?: () => void;
   onOpenFriends?: () => void;
   activeScreen?: ActiveScreen;
+  handle?: string | null;
 };
 
 const handleChallengeFriend = () => {
@@ -39,6 +40,7 @@ export function UserMenu({
   onOpenStudy,
   onOpenFriends,
   activeScreen = "home",
+  handle = null,
 }: UserMenuProps) {
   const { user, signInWithGoogle, signOut, isGuest, loading } = useAuth();
 
@@ -125,6 +127,14 @@ export function UserMenu({
         <DropdownMenuLabel>
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium">{user?.displayName}</p>
+            {handle && (
+              <p
+                className="text-xs font-mono tracking-widest"
+                style={{ color: "rgba(250,250,247,0.5)" }}
+              >
+                @{handle}
+              </p>
+            )}
             <p className="text-xs text-muted-foreground truncate">
               {user?.email}
             </p>
