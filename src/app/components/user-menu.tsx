@@ -1,7 +1,7 @@
 // src/app/components/user-menu.tsx
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import {
   DropdownMenu,
@@ -12,7 +12,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { type LucideIcon, LogIn, LogOut, User, Users, Trophy, CircleHelp, House, BookOpen, Share2 } from "lucide-react";
+import {
+  type LucideIcon,
+  LogIn,
+  LogOut,
+  User,
+  Users,
+  Trophy,
+  CircleHelp,
+  House,
+  BookOpen,
+  Share2,
+  Copy,
+  Check,
+} from "lucide-react";
+import { buildWhatsAppInvite } from "@/lib/utils";
 
 type ActiveScreen = "home" | "leaderboard" | "study" | "help";
 
@@ -21,9 +35,11 @@ type UserMenuProps = {
   onShowOnboarding?: () => void;
   onBackToMenu?: () => void;
   onOpenStudy?: () => void;
-  onOpenFriends?: () => void;
   activeScreen?: ActiveScreen;
-  handle?: string | null;
+  friendCode?: string;
+  friendsPanelOpen?: boolean;
+  setFriendsPanelOpen?: (open: boolean) => void;
+  pendingRequestCount?: number;
 };
 
 const handleChallengeFriend = () => {
@@ -38,11 +54,22 @@ export function UserMenu({
   onShowOnboarding,
   onBackToMenu,
   onOpenStudy,
-  onOpenFriends,
   activeScreen = "home",
-  handle = null,
+  friendCode = "",
+  friendsPanelOpen = false,
+  setFriendsPanelOpen,
+  pendingRequestCount = 0,
 }: UserMenuProps) {
   const { user, signInWithGoogle, signOut, isGuest, loading } = useAuth();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (!friendCode) return;
+    navigator.clipboard.writeText(friendCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   const navItems: Array<{
     icon: LucideIcon;
@@ -55,10 +82,6 @@ export function UserMenu({
     { icon: Share2, label: "Challenge a friend", onClick: handleChallengeFriend },
     { icon: CircleHelp, label: "How to play", onClick: onShowOnboarding, screen: "help" },
     { icon: Trophy, label: "Leaderboard", onClick: onShowLeaderboard, screen: "leaderboard" },
-    // Friends icon — only for signed-in users
-    ...(user && onOpenFriends
-      ? [{ icon: Users as LucideIcon, label: "Friends", onClick: onOpenFriends }]
-      : []),
   ];
 
   if (loading) {
@@ -75,7 +98,7 @@ export function UserMenu({
   }
 
   const navRow = (
-    <div className="flex justify-center gap-8">
+    <div className="flex justify-center gap-8 items-center">
       {navItems.map(({ icon: Icon, label, onClick, screen }) => {
         if (!onClick) return null;
         const isActive = screen !== undefined && activeScreen === screen;
@@ -92,6 +115,29 @@ export function UserMenu({
           </button>
         );
       })}
+
+      {/* Friends button with pending badge — signed-in only */}
+      {user && setFriendsPanelOpen && (
+        <div className="relative">
+          <button
+            onClick={() => setFriendsPanelOpen(true)}
+            className="p-3 rounded-full text-white hover:bg-white/10 transition-colors"
+            style={{ opacity: friendsPanelOpen ? 1 : 0.4 }}
+            title="Friends"
+            aria-label="Friends"
+          >
+            <Users size={20} />
+          </button>
+          {pendingRequestCount > 0 && (
+            <span
+              className="absolute top-0.5 right-0.5 flex items-center justify-center w-4 h-4 rounded-full text-white text-[10px] font-bold pointer-events-none"
+              style={{ backgroundColor: "#FF6A4D" }}
+            >
+              {pendingRequestCount > 9 ? "9+" : pendingRequestCount}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -123,23 +169,56 @@ export function UserMenu({
           </Avatar>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel>
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium">{user?.displayName}</p>
-            {handle && (
-              <p
-                className="text-xs font-mono tracking-widest"
-                style={{ color: "rgba(250,250,247,0.5)" }}
-              >
-                @{handle}
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground truncate">
-              {user?.email}
-            </p>
+            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
           </div>
         </DropdownMenuLabel>
+
+        {/* Friend code block */}
+        {friendCode && (
+          <>
+            <DropdownMenuSeparator />
+            <div className="px-2 py-2">
+              <p
+                className="text-xs uppercase mb-1.5"
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  letterSpacing: "4px",
+                  opacity: 0.5,
+                }}
+              >
+                MY CODE
+              </p>
+              <div className="flex items-center gap-2">
+                <span
+                  className="font-mono font-bold text-sm rounded-md px-3 py-1"
+                  style={{ backgroundColor: "#FAFAF7", color: "#0B1020" }}
+                >
+                  {friendCode}
+                </span>
+                <button
+                  onClick={handleCopy}
+                  className="p-1.5 rounded-md text-white/60 hover:text-white transition-colors"
+                  title="Copy code"
+                >
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+                <button
+                  onClick={() => window.open(buildWhatsAppInvite(friendCode), "_blank")}
+                  className="p-1.5 rounded-md transition-colors"
+                  style={{ color: "#FF6A4D" }}
+                  title="Invite a friend via WhatsApp"
+                >
+                  <Share2 size={14} />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onShowLeaderboard}>
           <Trophy className="mr-2 h-4 w-4" />

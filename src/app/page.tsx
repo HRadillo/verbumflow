@@ -7,12 +7,13 @@ import { Leaderboard } from "@/app/components/leaderboard";
 import { Onboarding } from "@/app/components/onboarding";
 import { Felicitations } from "@/app/components/felicitations";
 import { StudyMode } from "@/app/components/study-mode";
-import { UsernameSetup } from "@/app/components/username-setup";
 import { FriendsPanel } from "@/app/components/friends-panel";
 import { SplashScreen } from "@/app/components/splash-screen";
 import { useAuth } from "@/contexts/auth-context";
 import { useState, useEffect, useCallback } from "react";
-import { getHandle, initializeUserStats, type UserStats } from "@/lib/firestore";
+import { initializeUserStats, type UserStats } from "@/lib/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { Heart } from "lucide-react";
 
 export default function Home() {
@@ -20,22 +21,21 @@ export default function Home() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showStudyMode, setShowStudyMode] = useState(false);
-  const [showFriendsPanel, setShowFriendsPanel] = useState(false);
-  const [needsUsername, setNeedsUsername] = useState(false);
-  const [currentHandle, setCurrentHandle] = useState<string | null>(null);
+  const [friendsPanelOpen, setFriendsPanelOpen] = useState(false);
+  const [pendingAddFriendCode, setPendingAddFriendCode] = useState<string>("");
+  const [pendingRequestCount, setPendingRequestCount] = useState(0);
   const [felicitationsType, setFelicitationsType] = useState<
     "personal" | "global" | null
   >(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [showHomeInterrupt, setShowHomeInterrupt] = useState(false);
   const [currentGameState, setCurrentGameState] = useState<"idle" | "playing" | "lost">("idle");
-  const { user, loading } = useAuth();
+  const { user, loading, friendCode } = useAuth();
 
   // Manage onboarding visibility and user stats based on auth state
   useEffect(() => {
     if (loading) return;
     if (user) {
-      // Signed in: set persistent flag, close onboarding, load stats
       if (typeof window !== "undefined") {
         localStorage.setItem("vf_onboarded", "1");
       }
@@ -46,27 +46,55 @@ export default function Home() {
         user.photoURL
       ).then((stats) => {
         setUserStats(stats);
-        getHandle(user.uid)
-          .then((handle) => {
-            setCurrentHandle(handle);
-            setNeedsUsername(handle === null);
-          })
-          .catch(() => {
-            setCurrentHandle(null);
-            setNeedsUsername(true);
-          });
       });
     } else {
-      // Guest: splash → entry screen handles the initial prompt
       setUserStats(null);
-      setNeedsUsername(false);
-      setCurrentHandle(null);
+      setFriendsPanelOpen(false);
     }
   }, [user, loading]);
 
+  // Deep link detection on mount — store code in sessionStorage for retrieval after sign-in
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("addFriend");
+    if (!code) return;
+    window.history.replaceState({}, "", window.location.pathname);
+    sessionStorage.setItem("vf_pending_add", code.toUpperCase());
+  }, []);
+
+  // After sign-in, consume any pending friend code from sessionStorage
+  useEffect(() => {
+    if (!user) return;
+    const stored = sessionStorage.getItem("vf_pending_add");
+    if (!stored) return;
+    sessionStorage.removeItem("vf_pending_add");
+    setPendingAddFriendCode(stored);
+    setFriendsPanelOpen(true);
+  }, [user]);
+
+  // Real-time listener for pending incoming friend requests
+  useEffect(() => {
+    if (!user) {
+      setPendingRequestCount(0);
+      return;
+    }
+    const q = query(
+      collection(db, "friendships"),
+      where("users", "array-contains", user.uid),
+      where("status", "==", "pending")
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const incoming = snap.docs.filter(
+        (d) => d.data().initiator !== user.uid
+      ).length;
+      setPendingRequestCount(incoming);
+    });
+    return () => unsub();
+  }, [user]);
+
   const handleStreakRecord = useCallback(
     (type: "personal" | "global") => {
-      // Global record takes priority over personal
       setFelicitationsType((prev) =>
         prev === "global" ? "global" : type
       );
@@ -82,10 +110,6 @@ export default function Home() {
     setShowStudyMode(true);
   }, []);
 
-  const handleOpenFriends = useCallback(() => {
-    setShowFriendsPanel(true);
-  }, []);
-
   // Auto-dismiss interrupt if game is no longer playing
   useEffect(() => {
     if (currentGameState !== "playing") {
@@ -97,7 +121,6 @@ export default function Home() {
     if (user && currentGameState === "playing") {
       setShowHomeInterrupt(true);
     }
-    // Guest or idle: no-op (player is already at the idle screen)
   }, [user, currentGameState]);
 
   const activeScreen = showLeaderboard
@@ -122,7 +145,7 @@ export default function Home() {
     );
   }
 
-  // Guest users (not signed in) always go through splash → entry screen on each cold load
+  // Guest users always go through splash → entry screen on each cold load
   if (!splashDone && !user) {
     return <SplashScreen onComplete={() => setSplashDone(true)} />;
   }
@@ -208,9 +231,11 @@ export default function Home() {
             onShowOnboarding={() => setShowOnboarding(true)}
             onBackToMenu={handleHomeClick}
             onOpenStudy={handleOpenStudy}
-            onOpenFriends={handleOpenFriends}
             activeScreen={activeScreen}
-            handle={currentHandle}
+            friendCode={friendCode}
+            friendsPanelOpen={friendsPanelOpen}
+            setFriendsPanelOpen={setFriendsPanelOpen}
+            pendingRequestCount={pendingRequestCount}
           />
         </div>
       </div>
@@ -246,19 +271,17 @@ export default function Home() {
         </a>
       </footer>
 
-      {/* Username setup modal — shown after first sign-in */}
-      {needsUsername && user && (
-        <UsernameSetup
-          onComplete={(handle) => {
-            setNeedsUsername(false);
-            setCurrentHandle(handle);
-            setUserStats((prev) => (prev ? { ...prev, username: handle, handle } : prev));
-          }}
+      {/* Friends panel */}
+      {user && (
+        <FriendsPanel
+          open={friendsPanelOpen}
+          onClose={() => setFriendsPanelOpen(false)}
+          currentUid={user.uid}
+          currentUserFriendCode={friendCode}
+          pendingAddFriendCode={pendingAddFriendCode}
+          onPendingCodeConsumed={() => setPendingAddFriendCode("")}
         />
       )}
-
-      {/* Friends panel */}
-      <FriendsPanel open={showFriendsPanel} onOpenChange={setShowFriendsPanel} />
 
       {/* Leaderboard modal */}
       <Leaderboard open={showLeaderboard} onOpenChange={setShowLeaderboard} />
