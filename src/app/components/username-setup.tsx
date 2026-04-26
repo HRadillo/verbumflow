@@ -17,6 +17,7 @@ export function UsernameSetup({ onComplete }: Props) {
   const [checking, setChecking] = useState(false);
   const [taken, setTaken] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const isValid = USERNAME_REGEX.test(value);
   const canSubmit = isValid && !taken && !checking && !submitting;
@@ -45,11 +46,14 @@ export function UsernameSetup({ onComplete }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !canSubmit) return;
+    setError(null);
     setSubmitting(true);
     try {
       await saveUsername(user.uid, value);
       onComplete(value);
-    } catch {
+    } catch (err) {
+      console.error("Username claim failed:", err);
+      setError("Something went wrong. Please try again.");
       setSubmitting(false);
     }
   };
@@ -127,6 +131,14 @@ export function UsernameSetup({ onComplete }: Props) {
           >
             {submitting ? "Saving…" : "Claim Handle →"}
           </button>
+          {error && (
+            <p
+              className="text-xs text-center"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "#FF6A4D" }}
+            >
+              {error}
+            </p>
+          )}
         </form>
 
         <p
