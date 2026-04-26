@@ -9,12 +9,14 @@ import { Felicitations } from "@/app/components/felicitations";
 import { StudyMode } from "@/app/components/study-mode";
 import { UsernameSetup } from "@/app/components/username-setup";
 import { FriendsPanel } from "@/app/components/friends-panel";
+import { SplashScreen } from "@/app/components/splash-screen";
 import { useAuth } from "@/contexts/auth-context";
 import { useState, useEffect, useCallback } from "react";
 import { initializeUserStats, type UserStats } from "@/lib/firestore";
 import { Heart } from "lucide-react";
 
 export default function Home() {
+  const [splashDone, setSplashDone] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showStudyMode, setShowStudyMode] = useState(false);
@@ -48,16 +50,9 @@ export default function Home() {
         }
       });
     } else {
-      // Guest: show onboarding every session (no localStorage flag)
+      // Guest: splash → entry screen handles the initial prompt
       setUserStats(null);
       setNeedsUsername(false);
-      const onboarded =
-        typeof window !== "undefined"
-          ? localStorage.getItem("vf_onboarded")
-          : null;
-      if (!onboarded) {
-        setShowOnboarding(true);
-      }
     }
   }, [user, loading]);
 
@@ -117,6 +112,11 @@ export default function Home() {
         <div className="h-10 w-10 border-4 border-dashed rounded-full animate-spin border-[#1F4BFF]" />
       </main>
     );
+  }
+
+  // Guest users (not signed in) always go through splash → entry screen on each cold load
+  if (!splashDone && !user) {
+    return <SplashScreen onComplete={() => setSplashDone(true)} />;
   }
 
   return (
