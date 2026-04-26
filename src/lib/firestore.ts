@@ -390,10 +390,6 @@ export async function acceptFriendRequest(currentUid: string, otherUid: string):
     if (data.initiator === currentUid) throw new Error("cannot_accept_own");
     if (data.status === "accepted") return;
     tx.update(ref, { status: "accepted", updatedAt: serverTimestamp() });
-    const userRef = doc(db, "users", currentUid);
-    const otherRef = doc(db, "users", otherUid);
-    tx.update(userRef, { friendCount: increment(1) });
-    tx.update(otherRef, { friendCount: increment(1) });
   });
 }
 
@@ -402,12 +398,7 @@ export async function removeFriendship(currentUid: string, otherUid: string): Pr
   const ref = doc(db, "friendships", id);
   const snap = await getDoc(ref);
   if (!snap.exists()) return;
-  const data = snap.data() as Friendship;
   await deleteDoc(ref);
-  if (data.status === "accepted") {
-    await updateDoc(doc(db, "users", currentUid), { friendCount: increment(-1) });
-    await updateDoc(doc(db, "users", otherUid), { friendCount: increment(-1) });
-  }
 }
 
 export async function getUserFriendships(uid: string): Promise<(Friendship & { id: string })[]> {
