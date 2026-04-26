@@ -1,6 +1,7 @@
 // src/lib/firestore.ts
 import {
   type DocumentData,
+  type FirestoreError,
   type UpdateData,
   doc,
   getDoc,
@@ -227,25 +228,35 @@ export async function isHandleTaken(handle: string): Promise<boolean> {
 export async function claimHandle(
   uid: string,
   handle: string
-): Promise<"ok" | "taken" | "already_has_handle" | "error"> {
+): Promise<"ok" | "taken" | "already_has_handle" | "auth_required" | "permission_denied" | "error"> {
   const normalizedHandle = handle.toLowerCase();
   const handleRef = doc(db, "handles", normalizedHandle);
+  const usernameRef = doc(db, "usernames", normalizedHandle);
   const userRef = doc(db, "users", uid);
 
   try {
     await runTransaction(db, async (tx) => {
       const handleSnap = await tx.get(handleRef);
+      const usernameSnap = await tx.get(usernameRef);
       const userSnap = await tx.get(userRef);
 
-      if (userSnap.exists() && userSnap.data()?.handle) {
+      const existingUserHandle = userSnap.exists() ? (userSnap.data()?.handle as string | undefined) : undefined;
+      if (existingUserHandle && existingUserHandle !== normalizedHandle) {
         throw new Error("already_has_handle");
       }
 
-      if (handleSnap.exists()) {
+      if (handleSnap.exists() && handleSnap.data()?.uid !== uid) {
         throw new Error("taken");
       }
 
-      tx.set(handleRef, { uid, createdAt: serverTimestamp() });
+      if (!handleSnap.exists()) {
+        tx.set(handleRef, { uid, createdAt: serverTimestamp() });
+      }
+
+      if (!usernameSnap.exists()) {
+        tx.set(usernameRef, { uid });
+      }
+
       tx.set(
         userRef,
         {
@@ -262,6 +273,9 @@ export async function claimHandle(
     const msg = e instanceof Error ? e.message : "";
     if (msg === "taken") return "taken";
     if (msg === "already_has_handle") return "already_has_handle";
+    const firestoreError = e as FirestoreError | null;
+    if (firestoreError?.code === "permission-denied") return "permission_denied";
+    if (firestoreError?.code === "unauthenticated") return "auth_required";
     console.error("claimHandle error:", e);
     return "error";
   }
