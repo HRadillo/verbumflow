@@ -1,266 +1,235 @@
 // src/app/components/friends-panel.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { Swords, UserPlus, Search, Clock, Users } from "lucide-react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { X, UserMinus, Check } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useAuth } from "@/contexts/auth-context";
 import {
-  getFriends,
-  addFriend,
-  getUserByUsername,
-  getPendingDuels,
-  getActiveDuels,
-  sendDuelRequest,
-  acceptDuel,
-  submitDuelScore,
-  type FriendEntry,
-  type DuelRequest,
+  getUserFriendships,
+  sendFriendRequest,
+  acceptFriendRequest,
+  removeFriendship,
+  getFriendCodeOwner,
+  type Friendship,
 } from "@/lib/firestore";
-import { ConjugationPractice } from "@/app/components/conjugation-practice";
+import { getDoc, doc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
-type Props = {
+type FriendsPanelProps = {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onClose: () => void;
+  currentUid: string;
+  currentUserFriendCode: string;
+  pendingAddFriendCode: string;
+  onPendingCodeConsumed: () => void;
 };
 
-type SearchResult =
-  | { uid: string; displayName: string; photoURL: string | null; username: string }
-  | "not-found"
-  | null;
-
-type ActiveDuelSession = {
-  duelId: string;
-  verbSeed: number;
-  opponentUsername: string;
+type UserData = {
+  displayName: string;
+  photoURL: string | null;
+  friendCode: string;
 };
 
-type DuelResultDisplay = {
-  duel: DuelRequest;
-  myUid: string;
-};
+type TabId = "friends" | "requests" | "add";
+type AddStatus = "idle" | "loading" | "success" | "error";
 
-type TabId = "search" | "friends" | "pending";
-
-export function FriendsPanel({ open, onOpenChange }: Props) {
-  const { user } = useAuth();
+export function FriendsPanel({
+  open,
+  onClose,
+  currentUid,
+  currentUserFriendCode,
+  pendingAddFriendCode,
+  onPendingCodeConsumed,
+}: FriendsPanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>("friends");
-  const [searchInput, setSearchInput] = useState("");
-  const [searchResult, setSearchResult] = useState<SearchResult>(null);
-  const [searching, setSearching] = useState(false);
-  const [friends, setFriends] = useState<FriendEntry[]>([]);
-  const [pendingDuels, setPendingDuels] = useState<DuelRequest[]>([]);
-  const [activeDuels, setActiveDuels] = useState<DuelRequest[]>([]);
-  const [loadingFriends, setLoadingFriends] = useState(false);
-  const [addingFriend, setAddingFriend] = useState<string | null>(null);
-  const [sendingDuel, setSendingDuel] = useState<string | null>(null);
-  const [activeDuelSession, setActiveDuelSession] = useState<ActiveDuelSession | null>(null);
-  const [duelResult, setDuelResult] = useState<DuelResultDisplay | null>(null);
+  const [friendships, setFriendships] = useState<(Friendship & { id: string })[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [userCache, setUserCache] = useState<Record<string, UserData>>({});
 
-  const loadFriendsData = useCallback(async () => {
-    if (!user) return;
-    setLoadingFriends(true);
+  // Add Friend tab state
+  const [addCode, setAddCode] = useState("");
+  const [addStatus, setAddStatus] = useState<AddStatus>("idle");
+  const [addError, setAddError] = useState("");
+  const addInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchUserData = useCallback(async (uid: string) => {
     try {
-      const [f, p, a] = await Promise.all([
-        getFriends(user.uid),
-        getPendingDuels(user.uid),
-        getActiveDuels(user.uid),
-      ]);
-      setFriends(f);
-      setPendingDuels(p);
-      setActiveDuels(a);
-    } catch (err) {
-      console.error("Failed to load friends data:", err);
-    } finally {
-      setLoadingFriends(false);
+      const snap = await getDoc(doc(db, "users", uid));
+      if (snap.exists()) {
+        const d = snap.data();
+        setUserCache((prev) => ({
+          ...prev,
+          [uid]: {
+            displayName: d.displayName ?? "Unknown",
+            photoURL: d.photoURL ?? null,
+            friendCode: d.friendCode ?? "",
+          },
+        }));
+      }
+    } catch {
+      // silently ignore fetch errors
     }
-  }, [user]);
+  }, []);
+
+  const loadFriendships = useCallback(async () => {
+    if (!currentUid) return;
+    setDataLoading(true);
+    try {
+      const data = await getUserFriendships(currentUid);
+      setFriendships(data);
+      const otherUids = [
+        ...new Set(
+          data
+            .map((f) => f.users.find((u) => u !== currentUid))
+            .filter((uid): uid is string => Boolean(uid))
+        ),
+      ];
+      await Promise.all(otherUids.map(fetchUserData));
+    } catch (err) {
+      console.error("Failed to load friendships:", err);
+    } finally {
+      setDataLoading(false);
+    }
+  }, [currentUid, fetchUserData]);
 
   useEffect(() => {
-    if (open && user) {
-      loadFriendsData();
+    if (open && currentUid) {
+      loadFriendships();
     }
-  }, [open, user, loadFriendsData]);
+  }, [open, currentUid, loadFriendships]);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchInput.trim()) return;
-    setSearching(true);
-    setSearchResult(null);
-    try {
-      const result = await getUserByUsername(searchInput.trim());
-      setSearchResult(result ?? "not-found");
-    } catch {
-      setSearchResult("not-found");
-    } finally {
-      setSearching(false);
+  // Handle pre-filled code from deep link
+  useEffect(() => {
+    if (open && pendingAddFriendCode) {
+      setActiveTab("add");
+      setAddCode(pendingAddFriendCode);
+      setAddStatus("idle");
+      setAddError("");
+      onPendingCodeConsumed();
+      setTimeout(() => addInputRef.current?.focus(), 350);
     }
-  };
+  }, [open, pendingAddFriendCode, onPendingCodeConsumed]);
 
-  const handleAddFriend = async (friendUid: string) => {
-    if (!user) return;
-    setAddingFriend(friendUid);
+  const getOtherUid = (f: Friendship) =>
+    f.users.find((u) => u !== currentUid) ?? "";
+
+  const acceptedFriendships = friendships.filter((f) => f.status === "accepted");
+  const receivedRequests = friendships.filter(
+    (f) => f.status === "pending" && f.initiator !== currentUid
+  );
+  const sentRequests = friendships.filter(
+    (f) => f.status === "pending" && f.initiator === currentUid
+  );
+
+  const handleAccept = async (f: Friendship & { id: string }) => {
     try {
-      await addFriend(user.uid, friendUid);
-      await loadFriendsData();
+      await acceptFriendRequest(currentUid, getOtherUid(f));
+      await loadFriendships();
     } catch (err) {
-      console.error("Failed to add friend:", err);
-    } finally {
-      setAddingFriend(null);
+      console.error("Failed to accept friend request:", err);
     }
   };
 
-  const handleSendDuel = async (friendUid: string) => {
-    if (!user) return;
-    setSendingDuel(friendUid);
+  const handleRemove = async (f: Friendship & { id: string }) => {
     try {
-      await sendDuelRequest(user.uid, friendUid, Math.floor(Math.random() * 2 ** 31));
+      await removeFriendship(currentUid, getOtherUid(f));
+      await loadFriendships();
     } catch (err) {
-      console.error("Failed to send duel:", err);
-    } finally {
-      setSendingDuel(null);
+      console.error("Failed to remove friendship:", err);
     }
   };
 
-  const handleAcceptAndPlay = async (duel: DuelRequest) => {
+  const handleAddFriend = async () => {
+    const code = addCode.trim().toUpperCase();
+    if (code.length !== 5) return;
+
+    setAddStatus("loading");
+    setAddError("");
+
     try {
-      await acceptDuel(duel.duelId);
-      setActiveDuelSession({
-        duelId: duel.duelId,
-        verbSeed: duel.verbSeed,
-        opponentUsername: duel.challengerUsername,
-      });
-    } catch (err) {
-      console.error("Failed to accept duel:", err);
+      if (code === currentUserFriendCode) {
+        setAddError("That's your own code!");
+        setAddStatus("error");
+        return;
+      }
+
+      const foundUid = await getFriendCodeOwner(code);
+      if (!foundUid) {
+        setAddError("Code not found");
+        setAddStatus("error");
+        return;
+      }
+
+      await sendFriendRequest(currentUid, foundUid);
+      setAddStatus("success");
+      setAddCode("");
+      await loadFriendships();
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === "already_exists") {
+        setAddError("Already friends or request pending");
+      } else {
+        setAddError("Something went wrong. Try again.");
+      }
+      setAddStatus("error");
     }
   };
 
-  const handlePlayActiveDuel = (duel: DuelRequest) => {
-    if (!user) return;
-    const isChallenger = duel.challengerUid === user.uid;
-    setActiveDuelSession({
-      duelId: duel.duelId,
-      verbSeed: duel.verbSeed,
-      opponentUsername: isChallenger ? duel.challengedUsername : duel.challengerUsername,
-    });
-  };
-
-  const handleDuelComplete = async (score: number) => {
-    if (!user || !activeDuelSession) return;
-    try {
-      const result = await submitDuelScore(activeDuelSession.duelId, user.uid, score);
-      setDuelResult({ duel: result, myUid: user.uid });
-      setActiveDuelSession(null);
-      loadFriendsData();
-    } catch (err) {
-      console.error("Failed to submit duel score:", err);
-      setActiveDuelSession(null);
-    }
-  };
-
-  const isAlreadyFriend = (uid: string) => friends.some((f) => f.uid === uid);
-
-  // ── Duel result overlay ──────────────────────────────────────────
-  if (duelResult) {
-    const { duel, myUid } = duelResult;
-    const isChallenger = duel.challengerUid === myUid;
-    const myScore = isChallenger ? duel.challengerScore : duel.challengedScore;
-    const opponentScore = isChallenger ? duel.challengedScore : duel.challengerScore;
-    const opponentUsername = isChallenger ? duel.challengedUsername : duel.challengerUsername;
-    const isComplete = duel.status === "completed";
-    const iWon = duel.winnerId === myUid;
-
-    return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-full sm:max-w-md p-0 overflow-y-auto">
-          <div className="flex flex-col items-center justify-center min-h-full p-8 text-center space-y-5"
-            style={{ background: "linear-gradient(135deg, #0B1020 0%, #1a2340 100%)" }}>
-            <div style={{ fontSize: "3rem", lineHeight: 1 }}>
-              {isComplete ? (iWon ? "🏆" : "💪") : "⏳"}
-            </div>
-            <h2 className="text-2xl font-extrabold text-white"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              {isComplete
-                ? iWon ? "You won!" : "You lost"
-                : "Score submitted!"}
-            </h2>
-            {isComplete ? (
-              <div className="flex gap-8">
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-3xl font-bold text-white">{myScore}</span>
-                  <span className="text-xs text-white/50 uppercase" style={{ fontFamily: "'JetBrains Mono', monospace" }}>You</span>
-                </div>
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-3xl font-bold text-white/60">{opponentScore}</span>
-                  <span className="text-xs text-white/50 uppercase" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{opponentUsername}</span>
-                </div>
-              </div>
-            ) : (
-              <p className="text-white/60 text-sm" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                Waiting for {opponentUsername}… Check back later.
-              </p>
-            )}
-            <button
-              onClick={() => setDuelResult(null)}
-              className="mt-4 px-6 py-3 rounded-xl text-white font-bold transition-all hover:opacity-90"
-              style={{ backgroundColor: "#1F4BFF", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              Back to Friends
-            </button>
-          </div>
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
-  // ── Active duel game ─────────────────────────────────────────────
-  if (activeDuelSession) {
-    return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-full sm:max-w-md p-4 overflow-y-auto"
-          style={{ background: "linear-gradient(135deg, #0B1020 0%, #1a2340 100%)" }}>
-          <div className="pt-2 pb-4">
-            <p className="text-center text-xs text-white/50 mb-4 uppercase tracking-widest"
-              style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              Duel vs {activeDuelSession.opponentUsername}
-            </p>
-            <ConjugationPractice
-              onNextQuestion={() => {}}
-              duelMode={{
-                duelId: activeDuelSession.duelId,
-                totalQuestions: 20,
-                verbSeed: activeDuelSession.verbSeed,
-                onComplete: handleDuelComplete,
-              }}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
-  // ── Normal panel ─────────────────────────────────────────────────
-  const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    { id: "friends", label: "Friends", icon: <Users size={15} /> },
-    { id: "search", label: "Search", icon: <Search size={15} /> },
-    { id: "pending", label: `Duels${pendingDuels.length + activeDuels.length > 0 ? ` (${pendingDuels.length + activeDuels.length})` : ""}`, icon: <Swords size={15} /> },
+  const tabs: { id: TabId; label: string }[] = [
+    {
+      id: "friends",
+      label: `Friends${acceptedFriendships.length > 0 ? ` (${acceptedFriendships.length})` : ""}`,
+    },
+    {
+      id: "requests",
+      label: `Requests${receivedRequests.length > 0 ? ` (${receivedRequests.length})` : ""}`,
+    },
+    { id: "add", label: "Add Friend" },
   ];
 
+  const tabStyle = (id: TabId) => ({
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    color: activeTab === id ? "#1F4BFF" : "rgba(255,255,255,0.4)",
+    borderBottom: activeTab === id ? "2px solid #1F4BFF" : "2px solid transparent",
+  });
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden"
-        style={{ background: "#0B1020" }}>
-        <SheetHeader className="px-5 pt-5 pb-3 border-b border-white/10">
-          <SheetTitle className="text-white text-lg font-bold"
-            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-            Friends &amp; Duels
-          </SheetTitle>
-        </SheetHeader>
+    <>
+      {/* Backdrop */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Slide-in panel */}
+      <div
+        className="fixed top-0 right-0 z-50 h-full w-full max-w-sm flex flex-col border-l border-white/10 transition-transform duration-300"
+        style={{
+          background: "#0B1020",
+          transform: open ? "translateX(0)" : "translateX(100%)",
+        }}
+        aria-modal="true"
+        role="dialog"
+        aria-label="Friends"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-white/10">
+          <h2
+            className="text-lg font-bold text-white"
+            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+          >
+            Friends
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Close friends panel"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
         {/* Tab bar */}
         <div className="flex border-b border-white/10">
@@ -268,232 +237,316 @@ export function FriendsPanel({ open, onOpenChange }: Props) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold transition-colors"
-              style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                color: activeTab === tab.id ? "#1F4BFF" : "rgba(255,255,255,0.4)",
-                borderBottom: activeTab === tab.id ? "2px solid #1F4BFF" : "2px solid transparent",
-              }}
+              className="flex-1 py-3 text-xs font-semibold transition-colors"
+              style={tabStyle(tab.id)}
             >
-              {tab.icon}
               {tab.label}
             </button>
           ))}
         </div>
 
+        {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {/* Search tab */}
-          {activeTab === "search" && (
-            <div className="space-y-4">
-              <form onSubmit={handleSearch} className="flex gap-2">
-                <input
-                  type="text"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Find a player by username"
-                  className="flex-1 h-10 px-3 rounded-lg text-sm outline-none"
-                  style={{
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    backgroundColor: "rgba(255,255,255,0.08)",
-                    color: "#fff",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                  }}
-                />
-                <button
-                  type="submit"
-                  disabled={searching || !searchInput.trim()}
-                  className="h-10 px-4 rounded-lg text-white text-sm font-semibold disabled:opacity-40"
-                  style={{ backgroundColor: "#1F4BFF", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                >
-                  {searching ? "…" : "Go"}
-                </button>
-              </form>
-
-              {searchResult === "not-found" && (
-                <p className="text-center text-white/40 text-sm py-4"
-                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                  No player found.
-                </p>
-              )}
-
-              {searchResult && searchResult !== "not-found" && (
-                <div className="flex items-center gap-3 p-3 rounded-xl"
-                  style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                  <Avatar className="h-10 w-10 flex-shrink-0">
-                    <AvatarImage src={searchResult.photoURL ?? undefined} />
-                    <AvatarFallback className="bg-white/10 text-white text-xs">
-                      {searchResult.displayName[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-sm truncate"
-                      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                      {searchResult.displayName}
-                    </p>
-                    <p className="text-white/40 text-xs"
-                      style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                      @{searchResult.username}
-                    </p>
-                  </div>
-                  {searchResult.uid !== user?.uid && !isAlreadyFriend(searchResult.uid) && (
-                    <button
-                      onClick={() => handleAddFriend(searchResult.uid)}
-                      disabled={addingFriend === searchResult.uid}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-40"
-                      style={{ backgroundColor: "#1F4BFF", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                    >
-                      <UserPlus size={12} />
-                      {addingFriend === searchResult.uid ? "Adding…" : "Add"}
-                    </button>
-                  )}
-                  {isAlreadyFriend(searchResult.uid) && (
-                    <span className="text-xs text-white/40"
-                      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Friends</span>
-                  )}
-                </div>
-              )}
-            </div>
+          {dataLoading && (
+            <p
+              className="text-center text-white/30 text-sm py-8"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              Loading…
+            </p>
           )}
 
-          {/* Friends list tab */}
-          {activeTab === "friends" && (
-            <div className="space-y-2">
-              {loadingFriends && (
-                <p className="text-center text-white/30 text-sm py-8"
-                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Loading…</p>
-              )}
-              {!loadingFriends && friends.length === 0 && (
+          {/* ── Friends tab ─────────────────────────────────────────── */}
+          {!dataLoading && activeTab === "friends" && (
+            <>
+              <p
+                className="text-xs text-white/40 uppercase mb-2"
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  letterSpacing: "2px",
+                }}
+              >
+                {acceptedFriendships.length} friend
+                {acceptedFriendships.length !== 1 ? "s" : ""}
+              </p>
+              {acceptedFriendships.length === 0 ? (
                 <div className="text-center py-10 space-y-2">
                   <p style={{ fontSize: "2rem" }}>👥</p>
-                  <p className="text-white/40 text-sm"
-                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                    No friends yet. Search for a player to add them.
-                  </p>
-                </div>
-              )}
-              {friends.map((friend) => (
-                <div key={friend.uid}
-                  className="flex items-center gap-3 p-3 rounded-xl"
-                  style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <Avatar className="h-10 w-10 flex-shrink-0">
-                    <AvatarImage src={friend.photoURL ?? undefined} />
-                    <AvatarFallback className="bg-white/10 text-white text-xs">
-                      {friend.displayName[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-sm truncate"
-                      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                      {friend.displayName}
-                    </p>
-                    <p className="text-white/40 text-xs"
-                      style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                      @{friend.username} · {friend.duelsWon}W {friend.duelsLost}L
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleSendDuel(friend.uid)}
-                    disabled={sendingDuel === friend.uid}
-                    className="p-2 rounded-lg text-white/60 hover:text-white transition-colors disabled:opacity-30"
-                    title="Challenge to a duel"
-                    style={{ backgroundColor: "rgba(255,255,255,0.05)" }}
+                  <p
+                    className="text-white/40 text-sm"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                   >
-                    {sendingDuel === friend.uid
-                      ? <Clock size={16} />
-                      : <Swords size={16} />}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Pending / Active duels tab */}
-          {activeTab === "pending" && (
-            <div className="space-y-3">
-              {loadingFriends && (
-                <p className="text-center text-white/30 text-sm py-8"
-                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Loading…</p>
-              )}
-
-              {!loadingFriends && pendingDuels.length === 0 && activeDuels.length === 0 && (
-                <div className="text-center py-10 space-y-2">
-                  <p style={{ fontSize: "2rem" }}>⚔️</p>
-                  <p className="text-white/40 text-sm"
-                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                    No pending duels.
+                    No friends yet — add someone with their code!
                   </p>
                 </div>
-              )}
-
-              {pendingDuels.length > 0 && (
-                <>
-                  <p className="text-xs text-white/40 uppercase tracking-widest"
-                    style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                    Incoming challenges
-                  </p>
-                  {pendingDuels.map((duel) => (
-                    <div key={duel.duelId}
+              ) : (
+                acceptedFriendships.map((f) => {
+                  const otherUid = getOtherUid(f);
+                  const ud = userCache[otherUid];
+                  return (
+                    <div
+                      key={f.id}
                       className="flex items-center gap-3 p-3 rounded-xl"
-                      style={{ backgroundColor: "rgba(31,75,255,0.12)", border: "1px solid rgba(31,75,255,0.25)" }}>
+                      style={{
+                        backgroundColor: "rgba(255,255,255,0.06)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                      }}
+                    >
+                      <Avatar className="h-10 w-10 flex-shrink-0">
+                        <AvatarImage src={ud?.photoURL ?? undefined} />
+                        <AvatarFallback className="bg-white/10 text-white text-xs">
+                          {ud?.displayName?.[0] ?? "?"}
+                        </AvatarFallback>
+                      </Avatar>
                       <div className="flex-1 min-w-0">
-                        <p className="text-white font-semibold text-sm"
-                          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                          {duel.challengerUsername}
+                        <p
+                          className="text-white font-semibold text-sm truncate"
+                          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                        >
+                          {ud?.displayName ?? "…"}
                         </p>
-                        <p className="text-white/40 text-xs"
-                          style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                          challenged you · 20 questions
+                        <p
+                          className="text-white/40 text-xs"
+                          style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                        >
+                          {ud?.friendCode ?? ""}
                         </p>
                       </div>
                       <button
-                        onClick={() => handleAcceptAndPlay(duel)}
-                        className="px-4 py-2 rounded-lg text-white text-xs font-bold"
-                        style={{ backgroundColor: "#1F4BFF", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                        Accept &amp; Play
+                        onClick={() => handleRemove(f)}
+                        className="p-2 rounded-lg text-white/30 hover:text-[#FF6A4D] transition-colors"
+                        title="Remove friend"
+                      >
+                        <UserMinus size={16} />
                       </button>
                     </div>
-                  ))}
-                </>
+                  );
+                })
               )}
+            </>
+          )}
 
-              {activeDuels.length > 0 && (
-                <>
-                  <p className="text-xs text-white/40 uppercase tracking-widest mt-2"
-                    style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                    Your turn to play
+          {/* ── Requests tab ────────────────────────────────────────── */}
+          {!dataLoading && activeTab === "requests" && (
+            <div className="space-y-5">
+              {/* Received */}
+              <div>
+                <p
+                  className="text-xs text-white/40 uppercase mb-2"
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    letterSpacing: "2px",
+                  }}
+                >
+                  Received
+                </p>
+                {receivedRequests.length === 0 ? (
+                  <p
+                    className="text-white/30 text-sm"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  >
+                    No incoming requests.
                   </p>
-                  {activeDuels.map((duel) => {
-                    const isChallenger = duel.challengerUid === user?.uid;
-                    const opponentName = isChallenger ? duel.challengedUsername : duel.challengerUsername;
+                ) : (
+                  receivedRequests.map((f) => {
+                    const otherUid = getOtherUid(f);
+                    const ud = userCache[otherUid];
                     return (
-                      <div key={duel.duelId}
+                      <div
+                        key={f.id}
                         className="flex items-center gap-3 p-3 rounded-xl"
-                        style={{ backgroundColor: "rgba(255,106,77,0.1)", border: "1px solid rgba(255,106,77,0.25)" }}>
+                        style={{
+                          backgroundColor: "rgba(31,75,255,0.1)",
+                          border: "1px solid rgba(31,75,255,0.2)",
+                        }}
+                      >
+                        <Avatar className="h-9 w-9 flex-shrink-0">
+                          <AvatarImage src={ud?.photoURL ?? undefined} />
+                          <AvatarFallback className="bg-white/10 text-white text-xs">
+                            {ud?.displayName?.[0] ?? "?"}
+                          </AvatarFallback>
+                        </Avatar>
                         <div className="flex-1 min-w-0">
-                          <p className="text-white font-semibold text-sm"
-                            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                            vs {opponentName}
+                          <p
+                            className="text-white font-semibold text-sm truncate"
+                            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                          >
+                            {ud?.displayName ?? "…"}
                           </p>
-                          <p className="text-white/40 text-xs"
-                            style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                            accepted · waiting for your score
+                          <p
+                            className="text-white/40 text-xs"
+                            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                          >
+                            {ud?.friendCode ?? ""}
+                          </p>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => handleAccept(f)}
+                            className="px-3 py-1.5 rounded-lg text-white text-xs font-bold"
+                            style={{
+                              backgroundColor: "#1F4BFF",
+                              fontFamily: "'Plus Jakarta Sans', sans-serif",
+                            }}
+                          >
+                            Accept
+                          </button>
+                          <button
+                            onClick={() => handleRemove(f)}
+                            className="px-3 py-1.5 rounded-lg text-white/60 text-xs font-bold"
+                            style={{
+                              backgroundColor: "rgba(255,255,255,0.08)",
+                              fontFamily: "'Plus Jakarta Sans', sans-serif",
+                            }}
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Sent */}
+              <div>
+                <p
+                  className="text-xs text-white/40 uppercase mb-2"
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    letterSpacing: "2px",
+                  }}
+                >
+                  Sent
+                </p>
+                {sentRequests.length === 0 ? (
+                  <p
+                    className="text-white/30 text-sm"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  >
+                    No sent requests.
+                  </p>
+                ) : (
+                  sentRequests.map((f) => {
+                    const otherUid = getOtherUid(f);
+                    const ud = userCache[otherUid];
+                    return (
+                      <div
+                        key={f.id}
+                        className="flex items-center gap-3 p-3 rounded-xl"
+                        style={{
+                          backgroundColor: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                        }}
+                      >
+                        <Avatar className="h-9 w-9 flex-shrink-0">
+                          <AvatarImage src={ud?.photoURL ?? undefined} />
+                          <AvatarFallback className="bg-white/10 text-white text-xs">
+                            {ud?.displayName?.[0] ?? "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className="text-white font-semibold text-sm truncate"
+                            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                          >
+                            {ud?.displayName ?? "…"}
+                          </p>
+                          <p
+                            className="text-white/40 text-xs"
+                            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                          >
+                            Pending…
                           </p>
                         </div>
                         <button
-                          onClick={() => handlePlayActiveDuel(duel)}
-                          className="px-4 py-2 rounded-lg text-white text-xs font-bold"
-                          style={{ backgroundColor: "#FF6A4D", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                          Play
+                          onClick={() => handleRemove(f)}
+                          className="px-3 py-1.5 rounded-lg text-white/60 text-xs font-bold"
+                          style={{
+                            backgroundColor: "rgba(255,255,255,0.08)",
+                            fontFamily: "'Plus Jakarta Sans', sans-serif",
+                          }}
+                        >
+                          Cancel
                         </button>
                       </div>
                     );
-                  })}
-                </>
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Add Friend tab ───────────────────────────────────────── */}
+          {activeTab === "add" && (
+            <div className="space-y-4 pt-2">
+              <p
+                className="text-white/50 text-sm"
+                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+              >
+                Enter a 5-character friend code to add someone.
+              </p>
+              <input
+                ref={addInputRef}
+                type="text"
+                value={addCode}
+                onChange={(e) => {
+                  const val = e.target.value
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9]/g, "")
+                    .slice(0, 5);
+                  setAddCode(val);
+                  if (addStatus !== "idle") {
+                    setAddStatus("idle");
+                    setAddError("");
+                  }
+                }}
+                placeholder="E.g. X9K2M"
+                maxLength={5}
+                className="w-full h-12 px-4 rounded-xl text-center text-base outline-none transition-colors"
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  backgroundColor: "rgba(255,255,255,0.08)",
+                  color: "#fff",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  letterSpacing: "4px",
+                }}
+              />
+              <button
+                onClick={handleAddFriend}
+                disabled={addCode.length !== 5 || addStatus === "loading"}
+                className="w-full h-12 rounded-xl text-white font-bold text-sm disabled:opacity-40 transition-all hover:opacity-90"
+                style={{
+                  backgroundColor: "#1F4BFF",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}
+              >
+                {addStatus === "loading" ? "Sending…" : "Add Friend"}
+              </button>
+              {addStatus === "error" && addError && (
+                <p
+                  className="text-xs text-center"
+                  style={{
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    color: "#FF6A4D",
+                  }}
+                >
+                  {addError}
+                </p>
+              )}
+              {addStatus === "success" && (
+                <p
+                  className="text-xs text-center flex items-center justify-center gap-1 text-white/80"
+                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                >
+                  <Check size={12} />
+                  Friend request sent!
+                </p>
               )}
             </div>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </>
   );
 }

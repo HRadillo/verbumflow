@@ -7,6 +7,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   collection,
   query,
   orderBy,
@@ -70,6 +71,18 @@ export type UserStats = {
   // Random mode stats
   randomCurrentStreak: number;
   randomLongestStreak: number;
+
+  // Friend code system
+  friendCode?: string;
+  friendCount?: number;
+};
+
+export type Friendship = {
+  users: [string, string];
+  status: "pending" | "accepted";
+  initiator: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 };
 
 export type LeaderboardEntry = {
@@ -121,7 +134,7 @@ export async function initializeUserStats(
   await setDoc(getUserRef(uid), {
     ...newStats,
     updatedAt: serverTimestamp(),
-  });
+  }, { merge: true });
 
   return newStats;
 }
@@ -309,7 +322,104 @@ export async function getUserByUsername(
   };
 }
 
-// ─── Friends ──────────────────────────────────────────────────────
+// ─── Friend Codes ─────────────────────────────────────────────────
+
+const FRIEND_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const FRIEND_CODE_LENGTH = 5;
+
+export async function generateAndStoreFriendCode(uid: string): Promise<string> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const code = Array.from(
+      { length: FRIEND_CODE_LENGTH },
+      () => FRIEND_CODE_CHARS[Math.floor(Math.random() * FRIEND_CODE_CHARS.length)]
+    ).join("");
+
+    const codeRef = doc(db, "friendCodes", code);
+    const userRef = doc(db, "users", uid);
+
+    try {
+      await runTransaction(db, async (tx) => {
+        const codeSnap = await tx.get(codeRef);
+        if (codeSnap.exists()) throw new Error("collision");
+        tx.set(codeRef, { uid });
+        tx.update(userRef, { friendCode: code });
+      });
+      return code;
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message === "collision") continue;
+      throw e;
+    }
+  }
+  throw new Error("Could not generate unique friend code after 10 attempts");
+}
+
+export async function getFriendCodeOwner(code: string): Promise<string | null> {
+  const snap = await getDoc(doc(db, "friendCodes", code.toUpperCase().trim()));
+  return snap.exists() ? (snap.data().uid as string) : null;
+}
+
+// ─── Friendships ──────────────────────────────────────────────────
+
+function friendshipId(uid1: string, uid2: string): string {
+  return [uid1, uid2].sort().join("_");
+}
+
+export async function sendFriendRequest(fromUid: string, toUid: string): Promise<void> {
+  if (fromUid === toUid) throw new Error("Cannot add yourself");
+  const id = friendshipId(fromUid, toUid);
+  const ref = doc(db, "friendships", id);
+  const snap = await getDoc(ref);
+  if (snap.exists()) throw new Error("already_exists");
+  const sorted = [fromUid, toUid].sort() as [string, string];
+  await setDoc(ref, {
+    users: sorted,
+    status: "pending",
+    initiator: fromUid,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function acceptFriendRequest(currentUid: string, otherUid: string): Promise<void> {
+  const id = friendshipId(currentUid, otherUid);
+  const ref = doc(db, "friendships", id);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error("not_found");
+    const data = snap.data() as Friendship;
+    if (data.initiator === currentUid) throw new Error("cannot_accept_own");
+    if (data.status === "accepted") return;
+    tx.update(ref, { status: "accepted", updatedAt: serverTimestamp() });
+    const userRef = doc(db, "users", currentUid);
+    const otherRef = doc(db, "users", otherUid);
+    tx.update(userRef, { friendCount: increment(1) });
+    tx.update(otherRef, { friendCount: increment(1) });
+  });
+}
+
+export async function removeFriendship(currentUid: string, otherUid: string): Promise<void> {
+  const id = friendshipId(currentUid, otherUid);
+  const ref = doc(db, "friendships", id);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const data = snap.data() as Friendship;
+  await deleteDoc(ref);
+  if (data.status === "accepted") {
+    await updateDoc(doc(db, "users", currentUid), { friendCount: increment(-1) });
+    await updateDoc(doc(db, "users", otherUid), { friendCount: increment(-1) });
+  }
+}
+
+export async function getUserFriendships(uid: string): Promise<(Friendship & { id: string })[]> {
+  const q = query(
+    collection(db, "friendships"),
+    where("users", "array-contains", uid)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Friendship) }));
+}
+
+// ─── Friends (legacy subcollection) ──────────────────────────────
 
 export async function addFriend(uid: string, friendUid: string): Promise<void> {
   await setDoc(doc(db, "users", uid, "friends", friendUid), {

@@ -14,3 +14,12 @@ export function seededRandom(seed: number): () => number {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
 }
+
+export function buildWhatsAppInvite(friendCode: string): string {
+  const appUrl = "https://verbumflowapp.web.app";
+  const addLink = `${appUrl}/?addFriend=${friendCode}`;
+  const message = encodeURIComponent(
+    `¡Juega VerbumFlow conmigo! 🇫🇷 Agrégame con mi código *${friendCode}* o haz clic aquí para añadirme directamente: ${addLink}`
+  );
+  return `https://wa.me/?text=${message}`;
+}
