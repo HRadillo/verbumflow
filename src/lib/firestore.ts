@@ -368,15 +368,29 @@ export async function sendFriendRequest(fromUid: string, toUid: string): Promise
   if (fromUid === toUid) throw new Error("Cannot add yourself");
   const id = friendshipId(fromUid, toUid);
   const ref = doc(db, "friendships", id);
-  const snap = await getDoc(ref);
-  if (snap.exists()) throw new Error("already_exists");
-  const sorted = [fromUid, toUid].sort() as [string, string];
-  await setDoc(ref, {
-    users: sorted,
-    status: "pending",
-    initiator: fromUid,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+
+    if (snap.exists()) {
+      const existing = snap.data() as Friendship;
+
+      // If the other user already sent the request, treat this as acceptance.
+      if (existing.status === "pending" && existing.initiator === toUid) {
+        tx.update(ref, { status: "accepted", updatedAt: serverTimestamp() });
+        return;
+      }
+
+      throw new Error("already_exists");
+    }
+
+    const sorted = [fromUid, toUid].sort() as [string, string];
+    tx.set(ref, {
+      users: sorted,
+      status: "pending",
+      initiator: fromUid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
   });
 }
 
