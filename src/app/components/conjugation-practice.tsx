@@ -303,18 +303,18 @@ export function ConjugationPractice({
       if (currentMode === "multiple-choice") {
         const allTensesForVerb = verbData[verb] ?? {};
 
-        const sameVerbWrongOptions = Object.entries(allTensesForVerb)
-          .filter(([tenseName]) => tenseName !== tense)
+        const sameVerbPronounCandidates = Object.entries(allTensesForVerb)
           .map(([, pronounMap]) => pronounMap[pronoun])
           .filter((candidate): candidate is string => Boolean(candidate));
 
-        const sameTenseWrongOptions = Object.values(verbData)
-          .map((tenses) => tenses[tense]?.[pronoun])
-          .filter((candidate): candidate is string => Boolean(candidate));
+        const uniqueSameVerbPronounOptions = Array.from(new Set(sameVerbPronounCandidates));
+        const uniqueWrongOptions = uniqueSameVerbPronounOptions.filter(
+          (candidate) => candidate !== correctAnswer
+        );
 
-        const uniqueWrongOptions = Array.from(
-          new Set([...sameVerbWrongOptions, ...sameTenseWrongOptions])
-        ).filter((candidate) => candidate !== correctAnswer);
+        if (uniqueWrongOptions.length < 3) {
+          return null;
+        }
 
         const wrongOptions = shuffleArray(uniqueWrongOptions).slice(0, 3);
         const options = shuffleArray([correctAnswer, ...wrongOptions]);
