@@ -13,6 +13,7 @@ import {
   getFriendCodeOwner,
   getPendingDuels,
   getActiveDuels,
+  getOpenDuels,
   sendDuelRequest,
   acceptDuel,
   rejectDuel,
@@ -63,6 +64,7 @@ export function FriendsPanel({
   const [flashMessage, setFlashMessage] = useState("");
   const [pendingDuels, setPendingDuels] = useState<DuelRequest[]>([]);
   const [activeDuels, setActiveDuels] = useState<DuelRequest[]>([]);
+  const [openDuels, setOpenDuels] = useState<DuelRequest[]>([]);
   const addInputRef = useRef<HTMLInputElement>(null);
 
   const fetchUserData = useCallback(async (uid: string) => {
@@ -102,6 +104,10 @@ export function FriendsPanel({
         getPendingDuels(currentUid),
         getActiveDuels(currentUid),
       ]);
+      const open = await getOpenDuels(currentUid);
+      setPendingDuels(pending);
+      setActiveDuels(active);
+      setOpenDuels(open);
       setPendingDuels(pending);
       setActiveDuels(active);
     } catch (err) {
@@ -177,6 +183,12 @@ export function FriendsPanel({
 
   const getActiveDuelForFriend = (friendUid: string) =>
     activeDuels.find((d) =>
+      (d.challengerUid === currentUid && d.challengedUid === friendUid) ||
+      (d.challengedUid === currentUid && d.challengerUid === friendUid)
+    );
+
+  const getOpenDuelForFriend = (friendUid: string) =>
+    openDuels.find((d) =>
       (d.challengerUid === currentUid && d.challengedUid === friendUid) ||
       (d.challengedUid === currentUid && d.challengerUid === friendUid)
     );
@@ -396,10 +408,36 @@ export function FriendsPanel({
                           Enter duel
                         </button>
                       ) : (
-                        <div className="flex gap-1">
-                          <button onClick={() => handleSendDuel(otherUid, "classic")} className="px-2 py-1 rounded-lg text-[10px] font-bold text-white/90" style={{ backgroundColor: "rgba(31,75,255,0.8)" }}>Classic duel</button>
-                          <button onClick={() => handleSendDuel(otherUid, "random")} className="px-2 py-1 rounded-lg text-[10px] font-bold text-white/90" style={{ backgroundColor: "rgba(255,106,77,0.8)" }}>Random duel</button>
-                        </div>
+                        (() => {
+                          const openDuel = getOpenDuelForFriend(otherUid);
+                          if (openDuel?.status === "pending") {
+                            const sentByMe = openDuel.challengerUid === currentUid;
+                            return (
+                              <div className="flex gap-1">
+                                <button
+                                  disabled
+                                  className="px-2 py-1 rounded-lg text-[10px] font-bold text-white/60 cursor-not-allowed"
+                                  style={{ backgroundColor: "rgba(255,255,255,0.16)" }}
+                                >
+                                  {sentByMe ? "Invite pending…" : "They challenged you"}
+                                </button>
+                                <button
+                                  disabled
+                                  className="px-2 py-1 rounded-lg text-[10px] font-bold text-white/50 cursor-not-allowed"
+                                  style={{ backgroundColor: "rgba(255,255,255,0.10)" }}
+                                >
+                                  Duel locked
+                                </button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="flex gap-1">
+                              <button onClick={() => handleSendDuel(otherUid, "classic")} className="px-2 py-1 rounded-lg text-[10px] font-bold text-white/90" style={{ backgroundColor: "rgba(31,75,255,0.8)" }}>Classic duel</button>
+                              <button onClick={() => handleSendDuel(otherUid, "random")} className="px-2 py-1 rounded-lg text-[10px] font-bold text-white/90" style={{ backgroundColor: "rgba(255,106,77,0.8)" }}>Random duel</button>
+                            </div>
+                          );
+                        })()
                       )}
                     </div>
                   );

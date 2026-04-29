@@ -620,3 +620,24 @@ export async function getActiveDuels(uid: string): Promise<DuelRequest[]> {
 
   return results;
 }
+
+// Returns pending/accepted duels where the user participates and has not finished lifecycle.
+export async function getOpenDuels(uid: string): Promise<DuelRequest[]> {
+  const [asChallenger, asChallenged] = await Promise.all([
+    getDocs(query(collection(db, "duels"), where("challengerUid", "==", uid), limit(50))),
+    getDocs(query(collection(db, "duels"), where("challengedUid", "==", uid), limit(50))),
+  ]);
+
+  const seen = new Set<string>();
+  const results: DuelRequest[] = [];
+  for (const snap of [asChallenger, asChallenged]) {
+    for (const d of snap.docs) {
+      if (seen.has(d.id)) continue;
+      const data = d.data();
+      if (data.status !== "pending" && data.status !== "accepted") continue;
+      seen.add(d.id);
+      results.push({ duelId: d.id, ...data } as DuelRequest);
+    }
+  }
+  return results;
+}
