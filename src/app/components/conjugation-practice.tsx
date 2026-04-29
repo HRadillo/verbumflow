@@ -208,6 +208,7 @@ export function ConjugationPractice({
   const [fillInTheBlankQueue, setFillInTheBlankQueue] = useState<Question[]>([]);
   const [recentRandomPairs, setRecentRandomPairs] = useState<string[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<CurrentQuestion | null>(null);
+  const [questionLoadAttempts, setQuestionLoadAttempts] = useState(0);
   const [userAnswer, setUserAnswer] = useState("");
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -662,6 +663,29 @@ export function ConjugationPractice({
       setKey((k) => k + 1);
     }
   }, [filteredQuestions.length, gameState]);
+
+
+  // Prevent frozen loading card: if a question fails to initialize quickly while playing, force-generate one.
+  useEffect(() => {
+    if (gameState !== "playing" || currentQuestion || showLevelUp) return;
+
+    const fallbackId = setTimeout(() => {
+      const fallback = pickRandomQuestion([], 0);
+      setGameMode((prev) => (prev === "classic" && filteredClassicVerbTensePairs.length === 0 ? "random" : prev));
+      setCurrentQuestion(getQuestionDetails(fallback, "multiple-choice"));
+      setRecentRandomPairs([`${fallback.verb}|${fallback.pronoun}`]);
+      setQuestionLoadAttempts((prev) => prev + 1);
+    }, 1200);
+
+    return () => clearTimeout(fallbackId);
+  }, [
+    currentQuestion,
+    gameState,
+    getQuestionDetails,
+    pickRandomQuestion,
+    filteredClassicVerbTensePairs.length,
+    showLevelUp,
+  ]);
 
   // Timer: reset and run on each new question, pause when answered or not playing
   useEffect(() => {
@@ -1845,8 +1869,25 @@ export function ConjugationPractice({
               className="mt-4"
               style={{ color: "#0B1020", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
             >
-              Loading Verbs...
+              Preparing your next question…
             </CardTitle>
+            {questionLoadAttempts > 0 && (
+              <p className="mt-2 text-xs text-center text-[#0B1020]/60">
+                Recovered from a loading hiccup.
+              </p>
+            )}
+            <Button
+              onClick={() => {
+                const fallback = pickRandomQuestion([], 0);
+                setCurrentQuestion(getQuestionDetails(fallback, "multiple-choice"));
+                setRecentRandomPairs([`${fallback.verb}|${fallback.pronoun}`]);
+                setKey((k) => k + 1);
+              }}
+              className="mt-4 bg-[#1F4BFF] hover:bg-[#1637CC] text-white"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              Continue now
+            </Button>
           </Card>
         )
       )}
