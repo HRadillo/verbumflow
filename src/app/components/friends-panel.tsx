@@ -8,8 +8,16 @@ import {
   getUserFriendships,
   sendFriendRequest,
   acceptFriendRequest,
+  rejectFriendRequest,
   removeFriendship,
   getFriendCodeOwner,
+  getPendingDuels,
+  getActiveDuels,
+  sendDuelRequest,
+  acceptDuel,
+  rejectDuel,
+  type DuelRequest,
+  type GameMode,
   type Friendship,
 } from "@/lib/firestore";
 import { getDoc, doc } from "firebase/firestore";
@@ -22,6 +30,7 @@ type FriendsPanelProps = {
   currentUserFriendCode: string;
   pendingAddFriendCode: string;
   onPendingCodeConsumed: () => void;
+  onStartDuel: (duel: { duelId: string; verbSeed: number }) => void;
 };
 
 type UserData = {
@@ -40,6 +49,7 @@ export function FriendsPanel({
   currentUserFriendCode,
   pendingAddFriendCode,
   onPendingCodeConsumed,
+  onStartDuel,
 }: FriendsPanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>("friends");
   const [friendships, setFriendships] = useState<(Friendship & { id: string })[]>([]);
@@ -50,6 +60,9 @@ export function FriendsPanel({
   const [addCode, setAddCode] = useState("");
   const [addStatus, setAddStatus] = useState<AddStatus>("idle");
   const [addError, setAddError] = useState("");
+  const [flashMessage, setFlashMessage] = useState("");
+  const [pendingDuels, setPendingDuels] = useState<DuelRequest[]>([]);
+  const [activeDuels, setActiveDuels] = useState<DuelRequest[]>([]);
   const addInputRef = useRef<HTMLInputElement>(null);
 
   const fetchUserData = useCallback(async (uid: string) => {
@@ -85,12 +98,24 @@ export function FriendsPanel({
         ),
       ];
       await Promise.all(otherUids.map(fetchUserData));
+      const [pending, active] = await Promise.all([
+        getPendingDuels(currentUid),
+        getActiveDuels(currentUid),
+      ]);
+      setPendingDuels(pending);
+      setActiveDuels(active);
     } catch (err) {
       console.error("Failed to load friendships:", err);
     } finally {
       setDataLoading(false);
     }
   }, [currentUid, fetchUserData]);
+
+  useEffect(() => {
+    if (!flashMessage) return;
+    const t = setTimeout(() => setFlashMessage(""), 2600);
+    return () => clearTimeout(t);
+  }, [flashMessage]);
 
   useEffect(() => {
     if (open && currentUid) {
@@ -124,19 +149,54 @@ export function FriendsPanel({
   const handleAccept = async (f: Friendship & { id: string }) => {
     try {
       await acceptFriendRequest(currentUid, getOtherUid(f));
+      setFlashMessage("Friend request accepted. Let’s conjugate together! 🇫🇷");
       await loadFriendships();
     } catch (err) {
       console.error("Failed to accept friend request:", err);
+    }
+  };
+  const handleReject = async (f: Friendship & { id: string }) => {
+    try {
+      await rejectFriendRequest(currentUid, getOtherUid(f));
+      setFlashMessage("Friend request declined.");
+      await loadFriendships();
+    } catch (err) {
+      console.error("Failed to reject friend request:", err);
     }
   };
 
   const handleRemove = async (f: Friendship & { id: string }) => {
     try {
       await removeFriendship(currentUid, getOtherUid(f));
+      setFlashMessage("Friend removed.");
       await loadFriendships();
     } catch (err) {
       console.error("Failed to remove friendship:", err);
     }
+  };
+
+  const getActiveDuelForFriend = (friendUid: string) =>
+    activeDuels.find((d) =>
+      (d.challengerUid === currentUid && d.challengedUid === friendUid) ||
+      (d.challengedUid === currentUid && d.challengerUid === friendUid)
+    );
+
+  const handleSendDuel = async (friendUid: string, mode: GameMode) => {
+    await sendDuelRequest(currentUid, friendUid, Math.floor(Math.random() * 1_000_000_000), mode);
+    setFlashMessage(`${mode === "classic" ? "Classic" : "Random"} duel sent! ⚔️`);
+    await loadFriendships();
+  };
+
+  const handleAcceptDuel = async (duelId: string) => {
+    await acceptDuel(duelId);
+    setFlashMessage("Duel accepted. May the best verb champion win! 🥖");
+    await loadFriendships();
+  };
+
+  const handleRejectDuel = async (duelId: string) => {
+    await rejectDuel(duelId);
+    setFlashMessage("Duel request declined.");
+    await loadFriendships();
   };
 
   const handleAddFriend = async () => {
@@ -214,6 +274,11 @@ export function FriendsPanel({
         role="dialog"
         aria-label="Friends"
       >
+        {flashMessage && (
+          <div className="mx-4 mt-3 rounded-lg px-3 py-2 text-xs text-white" style={{ background: "rgba(31,75,255,0.85)" }}>
+            {flashMessage}
+          </div>
+        )}
         {/* Header */}
         <div
           className="flex items-center justify-between border-b border-white/10 px-5 pb-4"
@@ -322,6 +387,20 @@ export function FriendsPanel({
                       >
                         <UserMinus size={16} />
                       </button>
+                      {getActiveDuelForFriend(otherUid) ? (
+                        <button
+                          onClick={() => onStartDuel(getActiveDuelForFriend(otherUid)!)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white"
+                          style={{ backgroundColor: "#1F4BFF", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                        >
+                          Enter duel
+                        </button>
+                      ) : (
+                        <div className="flex gap-1">
+                          <button onClick={() => handleSendDuel(otherUid, "classic")} className="px-2 py-1 rounded-lg text-[10px] font-bold text-white/90" style={{ backgroundColor: "rgba(31,75,255,0.8)" }}>Classic duel</button>
+                          <button onClick={() => handleSendDuel(otherUid, "random")} className="px-2 py-1 rounded-lg text-[10px] font-bold text-white/90" style={{ backgroundColor: "rgba(255,106,77,0.8)" }}>Random duel</button>
+                        </div>
+                      )}
                     </div>
                   );
                 })
@@ -402,12 +481,26 @@ export function FriendsPanel({
                               fontFamily: "'Plus Jakarta Sans', sans-serif",
                             }}
                           >
-                            Decline
+                            Remove
                           </button>
                         </div>
                       </div>
                     );
                   })
+                )}
+                {pendingDuels.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-xs text-white/50">Duel requests</p>
+                    {pendingDuels.map((duel) => (
+                      <div key={duel.duelId} className="rounded-xl p-3 border border-white/10 bg-white/5">
+                        <p className="text-sm text-white">{duel.challengerUsername} challenged you ({duel.mode ?? "classic"})</p>
+                        <div className="mt-2 flex gap-2">
+                          <button onClick={() => handleAcceptDuel(duel.duelId)} className="px-3 py-1.5 rounded-lg text-xs font-bold text-white" style={{ background: "#1F4BFF" }}>Accept</button>
+                          <button onClick={() => handleRejectDuel(duel.duelId)} className="px-3 py-1.5 rounded-lg text-xs font-bold text-white/70" style={{ background: "rgba(255,255,255,0.12)" }}>Reject</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
 
@@ -463,7 +556,7 @@ export function FriendsPanel({
                           </p>
                         </div>
                         <button
-                          onClick={() => handleRemove(f)}
+                            onClick={() => handleReject(f)}
                           className="px-3 py-1.5 rounded-lg text-white/60 text-xs font-bold"
                           style={{
                             backgroundColor: "rgba(255,255,255,0.08)",
