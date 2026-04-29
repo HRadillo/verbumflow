@@ -8,7 +8,6 @@ import {
   allConjugations,
   getRule,
 } from "@/lib/verbs";
-import { seededRandom } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -56,7 +55,6 @@ type CurrentQuestion = Question & {
 
 type DuelMode = {
   duelId: string;
-  totalQuestions: 20;
   verbSeed: number;
   onComplete: (score: number) => void;
 };
@@ -236,9 +234,7 @@ export function ConjugationPractice({
   >([]);
 
   // Duel mode state
-  const [duelQuestionIndex, setDuelQuestionIndex] = useState(0);
   const [duelScore, setDuelScore] = useState(0);
-  const duelQuestionsRef = useRef<Question[]>([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -386,18 +382,10 @@ export function ConjugationPractice({
     setIsTimedOut(false);
     onNextQuestion();
 
-    // Duel mode: advance through pre-generated question list
+    // Duel mode: continue deterministic stream until first mistake
     if (duelMode) {
-      const nextIndex = duelQuestionIndex + 1;
-      if (nextIndex >= duelMode.totalQuestions) {
-        duelMode.onComplete(duelScore);
-        return;
-      }
-      setDuelQuestionIndex(nextIndex);
-      const nextQ = duelQuestionsRef.current[nextIndex];
-      if (nextQ) {
-        setCurrentQuestion(getQuestionDetails(nextQ, "multiple-choice"));
-      }
+      const nextQ = pickRandomQuestion([], streak);
+      setCurrentQuestion(getQuestionDetails(nextQ, "multiple-choice"));
       setKey((prev) => prev + 1);
       return;
     }
@@ -567,7 +555,6 @@ export function ConjugationPractice({
     competitiveMode,
     streak,
     duelMode,
-    duelQuestionIndex,
     duelScore,
   ]);
 
@@ -579,19 +566,10 @@ export function ConjugationPractice({
   useEffect(() => {
     if (currentQuestion !== null || gameState !== "playing") return;
 
-    // Duel mode: generate seeded questions and show first one
+    // Duel mode: start deterministic question stream
     if (duelMode) {
-      if (duelQuestionsRef.current.length === 0) {
-        const rng = seededRandom(duelMode.verbSeed);
-        const qs: Question[] = [];
-        for (let i = 0; i < duelMode.totalQuestions; i++) {
-          const idx = Math.floor(rng() * allPossibleQuestions.length);
-          qs.push(allPossibleQuestions[idx]);
-        }
-        duelQuestionsRef.current = qs;
-      }
-      const firstQ = duelQuestionsRef.current[0];
-      if (firstQ) setCurrentQuestion(getQuestionDetails(firstQ, "multiple-choice"));
+      const firstQ = pickRandomQuestion([], 0);
+      setCurrentQuestion(getQuestionDetails(firstQ, "multiple-choice"));
       return;
     }
 
@@ -901,7 +879,9 @@ export function ConjugationPractice({
 
     if (duelMode) {
       if (isCorrect) setDuelScore((s) => s + 1);
-      // In duel mode, wrong answers don't end the game — advance via Next
+      if (!isCorrect) {
+        duelMode.onComplete(duelScore);
+      }
       return;
     }
 
@@ -1056,13 +1036,13 @@ export function ConjugationPractice({
 
   return (
     <div className="space-y-3">
-      {/* Duel mode: question progress */}
+      {/* Duel mode: status */}
       {duelMode && (
         <div
           className="text-center text-white font-bold text-lg drop-shadow-md"
           style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
         >
-          Question {duelQuestionIndex + 1} / {duelMode.totalQuestions}
+          Duel mode · First mistake ends the match
         </div>
       )}
 

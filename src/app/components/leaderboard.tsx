@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Flame, Target, Calendar, Trophy, User, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PlayerStatsDialog } from "@/app/components/player-stats-dialog";
 
 type LeaderboardProps = {
   open: boolean;
@@ -32,11 +33,13 @@ function LeaderboardList({
   valueKey,
   icon: Icon,
   currentUid,
+  onOpenProfile,
 }: {
   entries: LeaderboardEntry[];
   valueKey: keyof LeaderboardEntry;
   icon: React.ElementType;
   currentUid: string | null;
+  onOpenProfile: (uid: string, name: string, photoURL: string | null) => void;
 }) {
   if (entries.length === 0) {
     return (
@@ -81,12 +84,14 @@ function LeaderboardList({
           </div>
 
           {/* Avatar */}
+          <button onClick={() => onOpenProfile(entry.uid, entry.displayName, entry.photoURL ?? null)} className="rounded-full">
           <Avatar className="h-8 w-8 flex-shrink-0">
             <AvatarImage src={entry.photoURL ?? undefined} />
             <AvatarFallback className="text-xs bg-gray-200">
               <User className="h-3 w-3" />
             </AvatarFallback>
           </Avatar>
+          </button>
 
           {/* Name */}
           <div className="flex-1 min-w-0">
@@ -126,6 +131,9 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
   const [correctBoard, setCorrectBoard] = useState<LeaderboardEntry[]>([]);
   const [dailyBoard, setDailyBoard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [profileUid, setProfileUid] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState<string>("");
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -154,6 +162,7 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
   }, [open]);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -213,6 +222,9 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
                 valueKey="classicLongestStreak"
                 icon={Flame}
                 currentUid={user?.uid ?? null}
+                onOpenProfile={(uid, name, photoURL) => {
+                  setProfileUid(uid); setProfileName(name); setProfilePhoto(photoURL);
+                }}
               />
             </TabsContent>
 
@@ -222,6 +234,9 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
                 valueKey="randomLongestStreak"
                 icon={Shuffle}
                 currentUid={user?.uid ?? null}
+                onOpenProfile={(uid, name, photoURL) => {
+                  setProfileUid(uid); setProfileName(name); setProfilePhoto(photoURL);
+                }}
               />
             </TabsContent>
 
@@ -231,6 +246,9 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
                 valueKey="totalCorrect"
                 icon={Target}
                 currentUid={user?.uid ?? null}
+                onOpenProfile={(uid, name, photoURL) => {
+                  setProfileUid(uid); setProfileName(name); setProfilePhoto(photoURL);
+                }}
               />
               <p
                 className="text-[10px] text-muted-foreground text-center mt-2 px-2"
@@ -247,11 +265,22 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
                 valueKey="dailyStreak"
                 icon={Calendar}
                 currentUid={user?.uid ?? null}
+                onOpenProfile={(uid, name, photoURL) => {
+                  setProfileUid(uid); setProfileName(name); setProfilePhoto(photoURL);
+                }}
               />
             </TabsContent>
           </Tabs>
         )}
       </DialogContent>
     </Dialog>
+    <PlayerStatsDialog
+      uid={profileUid}
+      open={Boolean(profileUid)}
+      onOpenChange={(isOpen) => { if (!isOpen) setProfileUid(null); }}
+      fallbackName={profileName}
+      fallbackPhotoURL={profilePhoto}
+    />
+    </>
   );
 }

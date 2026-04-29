@@ -23,6 +23,7 @@ import {
 } from "@/lib/firestore";
 import { getDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { PlayerStatsDialog } from "@/app/components/player-stats-dialog";
 
 type FriendsPanelProps = {
   open: boolean;
@@ -66,6 +67,9 @@ export function FriendsPanel({
   const [activeDuels, setActiveDuels] = useState<DuelRequest[]>([]);
   const [openDuels, setOpenDuels] = useState<DuelRequest[]>([]);
   const addInputRef = useRef<HTMLInputElement>(null);
+  const [profileUid, setProfileUid] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState("");
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   const fetchUserData = useCallback(async (uid: string) => {
     try {
@@ -372,12 +376,12 @@ export function FriendsPanel({
                         border: "1px solid rgba(255,255,255,0.08)",
                       }}
                     >
-                      <Avatar className="h-10 w-10 flex-shrink-0">
+                      <button onClick={() => { setProfileUid(otherUid); setProfileName(ud?.displayName ?? "Player"); setProfilePhoto(ud?.photoURL ?? null); }} className="rounded-full"><Avatar className="h-10 w-10 flex-shrink-0">
                         <AvatarImage src={ud?.photoURL ?? undefined} />
                         <AvatarFallback className="bg-white/10 text-white text-xs">
                           {ud?.displayName?.[0] ?? "?"}
                         </AvatarFallback>
-                      </Avatar>
+                      </Avatar></button>
                       <div className="flex-1 min-w-0">
                         <p
                           className="text-white font-semibold text-sm truncate"
@@ -480,12 +484,12 @@ export function FriendsPanel({
                           border: "1px solid rgba(31,75,255,0.2)",
                         }}
                       >
-                        <Avatar className="h-9 w-9 flex-shrink-0">
+                        <button onClick={() => { setProfileUid(otherUid); setProfileName(ud?.displayName ?? "Player"); setProfilePhoto(ud?.photoURL ?? null); }} className="rounded-full"><Avatar className="h-9 w-9 flex-shrink-0">
                           <AvatarImage src={ud?.photoURL ?? undefined} />
                           <AvatarFallback className="bg-white/10 text-white text-xs">
                             {ud?.displayName?.[0] ?? "?"}
                           </AvatarFallback>
-                        </Avatar>
+                        </Avatar></button>
                         <div className="flex-1 min-w-0">
                           <p
                             className="text-white font-semibold text-sm truncate"
@@ -573,12 +577,12 @@ export function FriendsPanel({
                           border: "1px solid rgba(255,255,255,0.08)",
                         }}
                       >
-                        <Avatar className="h-9 w-9 flex-shrink-0">
+                        <button onClick={() => { setProfileUid(otherUid); setProfileName(ud?.displayName ?? "Player"); setProfilePhoto(ud?.photoURL ?? null); }} className="rounded-full"><Avatar className="h-9 w-9 flex-shrink-0">
                           <AvatarImage src={ud?.photoURL ?? undefined} />
                           <AvatarFallback className="bg-white/10 text-white text-xs">
                             {ud?.displayName?.[0] ?? "?"}
                           </AvatarFallback>
-                        </Avatar>
+                        </Avatar></button>
                         <div className="flex-1 min-w-0">
                           <p
                             className="text-white font-semibold text-sm truncate"
@@ -681,6 +685,7 @@ export function FriendsPanel({
           )}
         </div>
       </div>
+      <PlayerStatsDialog uid={profileUid} open={Boolean(profileUid)} onOpenChange={(isOpen) => { if (!isOpen) setProfileUid(null); }} fallbackName={profileName} fallbackPhotoURL={profilePhoto} />
     </>
   );
 }

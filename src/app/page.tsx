@@ -256,7 +256,6 @@ export default function Home() {
             onGameStateChange={setCurrentGameState}
             duelMode={duelMode ? {
               duelId: duelMode.duelId,
-              totalQuestions: 20,
               verbSeed: duelMode.verbSeed,
               onComplete: async (score) => {
                 if (!user || !duelMode) return;

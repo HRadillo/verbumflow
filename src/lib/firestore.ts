@@ -635,6 +635,11 @@ export async function getOpenDuels(uid: string): Promise<DuelRequest[]> {
       if (seen.has(d.id)) continue;
       const data = d.data();
       if (data.status !== "pending" && data.status !== "accepted") continue;
+      if (data.status === "accepted") {
+        const isChallenger = data.challengerUid === uid;
+        const myScore = isChallenger ? data.challengerScore : data.challengedScore;
+        if (myScore !== null) continue;
+      }
       seen.add(d.id);
       results.push({ duelId: d.id, ...data } as DuelRequest);
     }
