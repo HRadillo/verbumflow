@@ -125,20 +125,7 @@ const CLASSIC_PRONOUN_CANDIDATE_KEYS: string[][] = [
   ["ils/elles"],
 ];
 
-const CLASSIC_DISPLAY_LABELS = [
-  "je",
-  "tu",
-  "il/elle/on",
-  "nous",
-  "vous",
-  "ils/elles",
-] as const;
-
-function getClassicPronounKey(
-  verb: string,
-  tense: string,
-  cycleIndex: number
-): string | null {
+function getClassicPronounKey(verb: string, tense: string, cycleIndex: number): string | null {
   const candidates = CLASSIC_PRONOUN_CANDIDATE_KEYS[cycleIndex];
   if (!candidates) return null;
   for (const key of candidates) {
@@ -184,6 +171,15 @@ function pickWeightedVerb(currentStreak: number, avoidVerb: string | null): stri
 
   return pool[Math.floor(Math.random() * pool.length)];
 }
+
+
+const normalizeUserConjugation = (value: string): string => {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^((?:qu'|que\s+)?(?:j'|je|tu|il|elle|on|nous|vous|ils|elles)\s*)/i, "")
+    .trim();
+};
 
 export function ConjugationPractice({
   onNextQuestion,
@@ -305,30 +301,21 @@ export function ConjugationPractice({
       const { rule, tip } = getRule(verb, tense);
 
       if (currentMode === "multiple-choice") {
-        const wrongOptions: string[] = [];
         const allTensesForVerb = verbData[verb] ?? {};
-        const potentialWrongOptions = Array.from(
-          new Set(
-            Object.entries(allTensesForVerb)
-              .filter(([tenseName]) => tenseName !== tense)
-              .map(([, pronounMap]) => pronounMap[pronoun])
-              .filter((candidate): candidate is string => Boolean(candidate))
-          )
-        ).filter((c) => c !== correctAnswer);
 
-        const shuffledWrongOptions = shuffleArray(potentialWrongOptions);
-        for (const option of shuffledWrongOptions) {
-          if (wrongOptions.length >= 3) break;
-          if (!wrongOptions.includes(option)) {
-            wrongOptions.push(option);
-          }
-        }
+        const sameVerbWrongOptions = Object.entries(allTensesForVerb)
+          .filter(([tenseName]) => tenseName !== tense)
+          .map(([, pronounMap]) => pronounMap[pronoun])
+          .filter((candidate): candidate is string => Boolean(candidate));
 
-        // Keep options consistent with the displayed prompt:
-        // - same verb
-        // - same subject pronoun
-        // The only thing that varies is the tense/conjugation form.
-        const options = shuffleArray([correctAnswer, ...wrongOptions.slice(0, 3)]);
+        // Keep options strictly on the same verb + same pronoun.
+        // Only tense should vary between distractors.
+        const uniqueWrongOptions = Array.from(new Set(sameVerbWrongOptions)).filter(
+          (candidate) => candidate !== correctAnswer
+        );
+
+        const wrongOptions = shuffleArray(uniqueWrongOptions).slice(0, 3);
+        const options = shuffleArray([correctAnswer, ...wrongOptions]);
         return { verb, tense, pronoun, correctAnswer, options, rule, tip };
       } else {
         return { verb, tense, pronoun, correctAnswer, rule, tip };
@@ -965,8 +952,8 @@ export function ConjugationPractice({
     totalAnsweredThisSessionRef.current += 1;
 
     const isCorrect =
-      answer.trim().toLowerCase() ===
-      currentQuestion?.correctAnswer.toLowerCase();
+      normalizeUserConjugation(answer) ===
+      normalizeUserConjugation(currentQuestion?.correctAnswer ?? "");
     setUserAnswer(answer);
     setFeedback(isCorrect ? "correct" : "incorrect");
     setIsAnswered(true);
@@ -1126,9 +1113,6 @@ export function ConjugationPractice({
   const displayPronoun = (() => {
     if (currentQuestion?.tense === "Impératif Présent") {
       return `(${currentQuestion.pronoun})`;
-    }
-    if (gameMode === "classic" && !duelMode) {
-      return CLASSIC_DISPLAY_LABELS[classicCycleIndex] ?? currentQuestion?.pronoun;
     }
     return currentQuestion?.pronoun;
   })();
