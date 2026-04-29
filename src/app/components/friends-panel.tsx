@@ -108,6 +108,8 @@ export function FriendsPanel({
       setPendingDuels(pending);
       setActiveDuels(active);
       setOpenDuels(open);
+      setPendingDuels(pending);
+      setActiveDuels(active);
     } catch (err) {
       console.error("Failed to load friendships:", err);
     } finally {
