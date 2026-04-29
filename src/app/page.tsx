@@ -11,7 +11,7 @@ import { FriendsPanel } from "@/app/components/friends-panel";
 import { SplashScreen } from "@/app/components/splash-screen";
 import { useAuth } from "@/contexts/auth-context";
 import { useState, useEffect, useCallback } from "react";
-import { initializeUserStats, type UserStats } from "@/lib/firestore";
+import { initializeUserStats, submitDuelScore, type UserStats } from "@/lib/firestore";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Heart } from "lucide-react";
@@ -30,6 +30,8 @@ export default function Home() {
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [showHomeInterrupt, setShowHomeInterrupt] = useState(false);
   const [currentGameState, setCurrentGameState] = useState<"idle" | "playing" | "lost">("idle");
+  const [duelMode, setDuelMode] = useState<{ duelId: string; verbSeed: number } | null>(null);
+  const [duelResultMessage, setDuelResultMessage] = useState("");
   const { user, loading, friendCode } = useAuth();
 
   // Manage onboarding visibility and user stats based on auth state
@@ -252,9 +254,33 @@ export default function Home() {
             onHomeInterruptDismiss={() => setShowHomeInterrupt(false)}
             onGoHome={() => setShowHomeInterrupt(false)}
             onGameStateChange={setCurrentGameState}
+            duelMode={duelMode ? {
+              duelId: duelMode.duelId,
+              totalQuestions: 20,
+              verbSeed: duelMode.verbSeed,
+              onComplete: async (score) => {
+                if (!user || !duelMode) return;
+                const result = await submitDuelScore(duelMode.duelId, user.uid, score);
+                if (result.status === "completed") {
+                  setDuelResultMessage(
+                    result.winnerId === user.uid
+                      ? "Victoire ! You won the duel! 🏆"
+                      : "Good fight! You lost this duel — rematch soon? ⚔️"
+                  );
+                } else {
+                  setDuelResultMessage("Score submitted. Waiting for your friend.");
+                }
+                setDuelMode(null);
+              },
+            } : undefined}
           />
         </div>
       </div>
+      {duelResultMessage && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 rounded-xl px-4 py-2 text-sm text-white bg-[#1F4BFF]/90">
+          {duelResultMessage}
+        </div>
+      )}
 
       {/* Footer — always at bottom, never overlapping */}
       <footer className="w-full text-center text-xs text-white/80 drop-shadow-sm pt-4">
@@ -280,6 +306,10 @@ export default function Home() {
           currentUserFriendCode={friendCode}
           pendingAddFriendCode={pendingAddFriendCode}
           onPendingCodeConsumed={() => setPendingAddFriendCode("")}
+          onStartDuel={(duel) => {
+            setFriendsPanelOpen(false);
+            setDuelMode(duel);
+          }}
         />
       )}
 
