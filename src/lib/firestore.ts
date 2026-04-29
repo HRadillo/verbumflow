@@ -32,7 +32,8 @@ export type DuelRequest = {
   challengerUsername: string;
   challengedUid: string;
   challengedUsername: string;
-  status: "pending" | "accepted" | "completed";
+  status: "pending" | "accepted" | "rejected" | "completed";
+  mode?: GameMode;
   verbSeed: number;
   challengerScore: number | null;
   challengedScore: number | null;
@@ -79,7 +80,7 @@ export type UserStats = {
 
 export type Friendship = {
   users: [string, string];
-  status: "pending" | "accepted";
+  status: "pending" | "accepted" | "rejected";
   initiator: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -407,6 +408,18 @@ export async function acceptFriendRequest(currentUid: string, otherUid: string):
   });
 }
 
+export async function rejectFriendRequest(currentUid: string, otherUid: string): Promise<void> {
+  const id = friendshipId(currentUid, otherUid);
+  const ref = doc(db, "friendships", id);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error("not_found");
+    const data = snap.data() as Friendship;
+    if (data.initiator === currentUid) throw new Error("cannot_reject_own");
+    tx.update(ref, { status: "rejected", updatedAt: serverTimestamp() });
+  });
+}
+
 export async function removeFriendship(currentUid: string, otherUid: string): Promise<void> {
   const id = friendshipId(currentUid, otherUid);
   const ref = doc(db, "friendships", id);
@@ -457,7 +470,8 @@ export async function getFriends(uid: string): Promise<FriendEntry[]> {
 export async function sendDuelRequest(
   challengerUid: string,
   challengedUid: string,
-  verbSeed: number
+  verbSeed: number,
+  mode: GameMode
 ): Promise<string> {
   const [challengerSnap, challengedSnap] = await Promise.all([
     getDoc(doc(db, "users", challengerUid)),
@@ -470,6 +484,7 @@ export async function sendDuelRequest(
     challengedUid,
     challengedUsername: challengedSnap.data()?.username ?? "unknown",
     status: "pending",
+    mode,
     verbSeed,
     challengerScore: null,
     challengedScore: null,
@@ -483,6 +498,10 @@ export async function sendDuelRequest(
 
 export async function acceptDuel(duelId: string): Promise<void> {
   await updateDoc(doc(db, "duels", duelId), { status: "accepted" });
+}
+
+export async function rejectDuel(duelId: string): Promise<void> {
+  await updateDoc(doc(db, "duels", duelId), { status: "rejected" });
 }
 
 export async function submitDuelScore(
@@ -599,5 +618,26 @@ export async function getActiveDuels(uid: string): Promise<DuelRequest[]> {
     }
   }
 
+  return results;
+}
+
+// Returns pending/accepted duels where the user participates and has not finished lifecycle.
+export async function getOpenDuels(uid: string): Promise<DuelRequest[]> {
+  const [asChallenger, asChallenged] = await Promise.all([
+    getDocs(query(collection(db, "duels"), where("challengerUid", "==", uid), limit(50))),
+    getDocs(query(collection(db, "duels"), where("challengedUid", "==", uid), limit(50))),
+  ]);
+
+  const seen = new Set<string>();
+  const results: DuelRequest[] = [];
+  for (const snap of [asChallenger, asChallenged]) {
+    for (const d of snap.docs) {
+      if (seen.has(d.id)) continue;
+      const data = d.data();
+      if (data.status !== "pending" && data.status !== "accepted") continue;
+      seen.add(d.id);
+      results.push({ duelId: d.id, ...data } as DuelRequest);
+    }
+  }
   return results;
 }
