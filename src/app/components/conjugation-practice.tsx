@@ -324,16 +324,11 @@ export function ConjugationPractice({
           }
         }
 
-        const remainingSlots = 3 - wrongOptions.length;
-        if (remainingSlots > 0) {
-          const globalWrongOptions = shuffleArray(
-            allConjugations.filter(
-              (c) => c !== correctAnswer && !wrongOptions.includes(c)
-            )
-          ).slice(0, remainingSlots);
-          wrongOptions.push(...globalWrongOptions);
-        }
-        const options = shuffleArray([correctAnswer, ...wrongOptions]);
+        // Keep options consistent with the displayed prompt:
+        // - same verb
+        // - same subject pronoun
+        // The only thing that varies is the tense/conjugation form.
+        const options = shuffleArray([correctAnswer, ...wrongOptions.slice(0, 3)]);
         return { verb, tense, pronoun, correctAnswer, options, rule, tip };
       } else {
         return { verb, tense, pronoun, correctAnswer, rule, tip };
@@ -1759,13 +1754,22 @@ export function ConjugationPractice({
                 </div>
               ) : (
                 <form onSubmit={handleFormSubmit} className="space-y-4">
+                  <p
+                    className="text-center text-xs sm:text-sm"
+                    style={{
+                      color: "rgba(11,16,32,0.65)",
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    }}
+                  >
+                    Write only the conjugated verb. Do not include the pronoun.
+                  </p>
                   <Input
                     ref={inputRef}
                     type="text"
                     value={userAnswer}
                     onChange={(e) => setUserAnswer(e.target.value)}
                     disabled={isAnswered}
-                    placeholder="Type the conjugation..."
+                    placeholder="Write only the conjugated verb (no pronoun)..."
                     className={cn("text-center text-lg h-14", getInputClass())}
                     autoCapitalize="none"
                     autoComplete="off"
