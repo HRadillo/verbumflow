@@ -32,7 +32,7 @@ type FriendsPanelProps = {
   currentUserFriendCode: string;
   pendingAddFriendCode: string;
   onPendingCodeConsumed: () => void;
-  onStartDuel: (duel: { duelId: string; verbSeed: number }) => void;
+  onStartDuel: (duel: { duelId: string; verbSeed: number; mode?: GameMode }) => void;
 };
 
 type UserData = {
