@@ -306,13 +306,16 @@ export function ConjugationPractice({
 
       if (currentMode === "multiple-choice") {
         const wrongOptions: string[] = [];
-        const allConjugationsForVerb = new Set(
-          Object.values(verbData[verb]).flatMap((p) => Object.values(p))
-        );
+        const allTensesForVerb = verbData[verb] ?? {};
+        const potentialWrongOptions = Array.from(
+          new Set(
+            Object.entries(allTensesForVerb)
+              .filter(([tenseName]) => tenseName !== tense)
+              .map(([, pronounMap]) => pronounMap[pronoun])
+              .filter((candidate): candidate is string => Boolean(candidate))
+          )
+        ).filter((c) => c !== correctAnswer);
 
-        const potentialWrongOptions = Array.from(allConjugationsForVerb).filter(
-          (c) => c !== correctAnswer && c
-        );
         const shuffledWrongOptions = shuffleArray(potentialWrongOptions);
         for (const option of shuffledWrongOptions) {
           if (wrongOptions.length >= 3) break;
