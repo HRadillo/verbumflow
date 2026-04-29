@@ -384,6 +384,7 @@ export function ConjugationPractice({
     (
       queue: { verb: string; tense: string }[],
       avoidVerb: string | null,
+      avoidPair: { verb: string; tense: string } | null,
       currentStreak: number
     ): {
       pair: { verb: string; tense: string };
@@ -391,7 +392,7 @@ export function ConjugationPractice({
     } => {
       for (let attempt = 0; attempt < 10; attempt++) {
         const verb = pickWeightedVerb(currentStreak, avoidVerb);
-        const verbPairs = filteredClassicVerbTensePairs.filter((p) => p.verb === verb);
+        const verbPairs = filteredClassicVerbTensePairs.filter((p) => p.verb === verb && (!avoidPair || !(p.verb === avoidPair.verb && p.tense === avoidPair.tense)));
         if (verbPairs.length > 0) {
           const pair = verbPairs[Math.floor(Math.random() * verbPairs.length)];
           return { pair, remainingQueue: queue };
@@ -400,10 +401,11 @@ export function ConjugationPractice({
       // Fallback: queue-based selection
       const sourceQueue =
         queue.length > 0 ? queue : shuffleArray(filteredClassicVerbTensePairs);
-      const idx =
-        avoidVerb !== null
-          ? sourceQueue.findIndex((p) => p.verb !== avoidVerb)
-          : 0;
+      const idx = sourceQueue.findIndex((p) => {
+        const avoidsVerb = avoidVerb !== null && p.verb === avoidVerb;
+        const avoidsPair = avoidPair !== null && p.verb === avoidPair.verb && p.tense === avoidPair.tense;
+        return !avoidsVerb && !avoidsPair;
+      });
       const safeIdx = idx >= 0 ? idx : 0;
       const pair = sourceQueue[safeIdx];
       const remainingQueue = [
@@ -474,6 +476,7 @@ export function ConjugationPractice({
         const { pair: nextPair, remainingQueue } = pickClassicVerbTensePair(
           classicVerbTenseQueue,
           avoidVerb ?? null,
+          currentQuestion ? { verb: currentQuestion.verb, tense: currentQuestion.tense } : null,
           streak
         );
         setLastClassicVerb(nextPair.verb);
@@ -565,6 +568,7 @@ export function ConjugationPractice({
     const { pair: nextPair, remainingQueue } = pickClassicVerbTensePair(
       classicVerbTenseQueue,
       avoidVerb ?? null,
+      currentQuestion ? { verb: currentQuestion.verb, tense: currentQuestion.tense } : null,
       streak
     );
     setLastClassicVerb(nextPair.verb);
@@ -1123,7 +1127,7 @@ export function ConjugationPractice({
     if (currentQuestion?.tense === "Impératif Présent") {
       return `(${currentQuestion.pronoun})`;
     }
-    if (gameMode === "classic") {
+    if (gameMode === "classic" && !duelMode) {
       return CLASSIC_DISPLAY_LABELS[classicCycleIndex] ?? currentQuestion?.pronoun;
     }
     return currentQuestion?.pronoun;
@@ -1863,40 +1867,7 @@ export function ConjugationPractice({
               )}
             </CardFooter>
           </Card>
-        ) : (
-          <Card
-            className="flex flex-col items-center justify-center p-12 text-center shadow-xl"
-            style={{
-              backgroundColor: "#FAFAF7",
-              border: "1px solid rgba(31,75,255,0.12)",
-            }}
-          >
-            <div className="h-16 w-16 border-4 border-dashed rounded-full animate-spin border-[#1F4BFF]"></div>
-            <CardTitle
-              className="mt-4"
-              style={{ color: "#0B1020", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              Preparing your next question…
-            </CardTitle>
-            {questionLoadAttempts > 0 && (
-              <p className="mt-2 text-xs text-center text-[#0B1020]/60">
-                Recovered from a loading hiccup.
-              </p>
-            )}
-            <Button
-              onClick={() => {
-                const fallback = pickRandomQuestion([], 0);
-                setCurrentQuestion(getQuestionDetails(fallback, "multiple-choice"));
-                setRecentRandomPairs([`${fallback.verb}|${fallback.pronoun}`]);
-                setKey((k) => k + 1);
-              }}
-              className="mt-4 bg-[#1F4BFF] hover:bg-[#1637CC] text-white"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              Continue now
-            </Button>
-          </Card>
-        )
+        ) : null
       )}
     </div>
   );
