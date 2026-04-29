@@ -1,7 +1,7 @@
 // src/app/components/conjugation-practice.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   verbData,
   verbs as allVerbs,
@@ -73,6 +73,7 @@ type ConjugationPracticeProps = {
 };
 
 const TIMER_DURATION = 15;
+const ALL_TENSES_OPTION = "Any";
 
 const shuffleArray = <T,>(array: T[]): T[] => {
   const newArray = [...array];
@@ -201,6 +202,7 @@ export function ConjugationPractice({
   const [lastStreakValue, setLastStreakValue] = useState(0);
   const [gameMode, setGameMode] = useState<GameMode>("classic");
   const [competitiveMode, setCompetitiveMode] = useState(true);
+  const [selectedTenses, setSelectedTenses] = useState<string[]>([ALL_TENSES_OPTION]);
   const [practiceQueue, setPracticeQueue] = useState<Question[]>([]);
   const [fillInTheBlankQueue, setFillInTheBlankQueue] = useState<Question[]>([]);
   const [recentRandomPairs, setRecentRandomPairs] = useState<string[]>([]);
@@ -250,6 +252,22 @@ export function ConjugationPractice({
   const { user } = useAuth();
 
   const timerEnabled = !practiceOnly && !duelMode && competitiveMode;
+  const availableTenses = useMemo(
+    () => Array.from(new Set(allPossibleQuestions.map((q) => q.tense))),
+    []
+  );
+  const activeTenses = useMemo(() => {
+    if (selectedTenses.includes(ALL_TENSES_OPTION)) return availableTenses;
+    return selectedTenses.length > 0 ? selectedTenses : availableTenses;
+  }, [availableTenses, selectedTenses]);
+  const filteredQuestions = useMemo(
+    () => allPossibleQuestions.filter((q) => activeTenses.includes(q.tense)),
+    [activeTenses]
+  );
+  const filteredClassicVerbTensePairs = useMemo(
+    () => classicVerbTensePairs.filter((p) => activeTenses.includes(p.tense)),
+    [activeTenses]
+  );
 
   const getQuestionDetails = useCallback(
     (question: Question, currentMode: PracticeMode): CurrentQuestion | null => {
@@ -299,7 +317,7 @@ export function ConjugationPractice({
     (recentPairs: string[], currentStreak: number): Question => {
       for (let attempt = 0; attempt < 10; attempt++) {
         const verb = pickWeightedVerb(currentStreak, null);
-        const verbQuestions = allPossibleQuestions.filter(
+        const verbQuestions = filteredQuestions.filter(
           (q) => q.verb === verb && !recentPairs.includes(`${q.verb}|${q.pronoun}`)
         );
         if (verbQuestions.length > 0) {
@@ -307,13 +325,13 @@ export function ConjugationPractice({
         }
       }
       // Fallback: ignore weighting, just avoid recent pairs
-      const available = allPossibleQuestions.filter(
+      const available = filteredQuestions.filter(
         (q) => !recentPairs.includes(`${q.verb}|${q.pronoun}`)
       );
-      const pool = available.length > 0 ? available : allPossibleQuestions;
+      const pool = available.length > 0 ? available : filteredQuestions;
       return pool[Math.floor(Math.random() * pool.length)];
     },
-    []
+    [filteredQuestions]
   );
 
   const pickClassicQuestion = useCallback(
@@ -349,7 +367,7 @@ export function ConjugationPractice({
     } => {
       for (let attempt = 0; attempt < 10; attempt++) {
         const verb = pickWeightedVerb(currentStreak, avoidVerb);
-        const verbPairs = classicVerbTensePairs.filter((p) => p.verb === verb);
+        const verbPairs = filteredClassicVerbTensePairs.filter((p) => p.verb === verb);
         if (verbPairs.length > 0) {
           const pair = verbPairs[Math.floor(Math.random() * verbPairs.length)];
           return { pair, remainingQueue: queue };
@@ -357,7 +375,7 @@ export function ConjugationPractice({
       }
       // Fallback: queue-based selection
       const sourceQueue =
-        queue.length > 0 ? queue : shuffleArray(classicVerbTensePairs);
+        queue.length > 0 ? queue : shuffleArray(filteredClassicVerbTensePairs);
       const idx =
         avoidVerb !== null
           ? sourceQueue.findIndex((p) => p.verb !== avoidVerb)
@@ -370,7 +388,7 @@ export function ConjugationPractice({
       ];
       return { pair, remainingQueue };
     },
-    []
+    [filteredClassicVerbTensePairs]
   );
 
   const prepareNextStage = useCallback(() => {
@@ -574,12 +592,19 @@ export function ConjugationPractice({
     }
 
     if (gameMode === "classic") {
+      if (filteredClassicVerbTensePairs.length === 0) {
+        const firstQ = pickRandomQuestion([], 0);
+        setGameMode("random");
+        setRecentRandomPairs([`${firstQ.verb}|${firstQ.pronoun}`]);
+        setCurrentQuestion(getQuestionDetails(firstQ, "multiple-choice"));
+        return;
+      }
       const verb = pickWeightedVerb(0, null);
-      const verbPairs = classicVerbTensePairs.filter((p) => p.verb === verb);
+      const verbPairs = filteredClassicVerbTensePairs.filter((p) => p.verb === verb);
       const firstPair =
         verbPairs.length > 0
           ? verbPairs[Math.floor(Math.random() * verbPairs.length)]
-          : classicVerbTensePairs[0];
+          : filteredClassicVerbTensePairs[0];
       const firstPronounKey = getClassicPronounKey(firstPair.verb, firstPair.tense, 0);
       setClassicVerbTenseQueue([]);
       setLastClassicVerb(firstPair.verb);
@@ -597,7 +622,21 @@ export function ConjugationPractice({
       setRecentRandomPairs([`${firstQ.verb}|${firstQ.pronoun}`]);
       setCurrentQuestion(getQuestionDetails(firstQ, "multiple-choice"));
     }
-  }, [currentQuestion, gameMode, gameState, getQuestionDetails, pickRandomQuestion, duelMode]);
+  }, [currentQuestion, gameMode, gameState, getQuestionDetails, pickRandomQuestion, duelMode, filteredClassicVerbTensePairs]);
+
+  useEffect(() => {
+    if (filteredQuestions.length === 0) return;
+    if (gameState === "playing") {
+      setCurrentQuestion(null);
+      setRecentRandomPairs([]);
+      setClassicVerbTenseQueue([]);
+      setClassicCycleIndex(0);
+      setFeedback(null);
+      setIsAnswered(false);
+      setUserAnswer("");
+      setKey((k) => k + 1);
+    }
+  }, [filteredQuestions.length, gameState]);
 
   // Timer: reset and run on each new question, pause when answered or not playing
   useEffect(() => {
@@ -837,6 +876,18 @@ export function ConjugationPractice({
     setLossSessionStats(null);
     setClassicCycleIndex(0);
     setClassicVerbTenseQueue([]);
+  };
+
+  const toggleTense = (tense: string) => {
+    setSelectedTenses((prev) => {
+      if (tense === ALL_TENSES_OPTION) return [ALL_TENSES_OPTION];
+      const withoutAny = prev.filter((t) => t !== ALL_TENSES_OPTION);
+      if (withoutAny.includes(tense)) {
+        const next = withoutAny.filter((t) => t !== tense);
+        return next.length > 0 ? next : [ALL_TENSES_OPTION];
+      }
+      return [...withoutAny, tense];
+    });
   };
 
   // Report game state changes to parent
@@ -1133,6 +1184,53 @@ export function ConjugationPractice({
           >
             Casual
           </button>
+        </div>
+      )}
+      {!practiceOnly && !duelMode && !competitiveMode && gameState !== "playing" && (
+        <div className="rounded-xl bg-white/10 border border-white/20 p-3 space-y-3">
+          <p className="text-center text-white text-sm font-semibold">Customize your practice</p>
+          <p className="text-center text-white/70 text-xs">Countdown is optional in casual mode.</p>
+          <div className="flex items-center justify-center gap-2">
+            <button
+              onClick={() => handleSwitchCompetitiveMode(false)}
+              className="text-xs px-3 py-1 rounded-full bg-white/20 text-white"
+            >
+              Countdown Off
+            </button>
+            <button
+              onClick={() => handleSwitchCompetitiveMode(true)}
+              className="text-xs px-3 py-1 rounded-full border border-white/40 text-white/90 hover:bg-white/10"
+            >
+              Countdown On
+            </button>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              onClick={() => toggleTense(ALL_TENSES_OPTION)}
+              className={cn(
+                "text-xs px-3 py-1 rounded-full border",
+                selectedTenses.includes(ALL_TENSES_OPTION)
+                  ? "bg-[#1F4BFF] border-[#1F4BFF] text-white"
+                  : "border-white/40 text-white/80"
+              )}
+            >
+              Any tense
+            </button>
+            {availableTenses.map((tense) => (
+              <button
+                key={tense}
+                onClick={() => toggleTense(tense)}
+                className={cn(
+                  "text-xs px-3 py-1 rounded-full border",
+                  selectedTenses.includes(tense)
+                    ? "bg-[#1F4BFF] border-[#1F4BFF] text-white"
+                    : "border-white/40 text-white/80"
+                )}
+              >
+                {tense}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
