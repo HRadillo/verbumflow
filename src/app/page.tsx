@@ -30,7 +30,7 @@ export default function Home() {
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [showHomeInterrupt, setShowHomeInterrupt] = useState(false);
   const [currentGameState, setCurrentGameState] = useState<"idle" | "playing" | "lost">("idle");
-  const [duelMode, setDuelMode] = useState<{ duelId: string; verbSeed: number } | null>(null);
+  const [duelMode, setDuelMode] = useState<{ duelId: string; verbSeed: number; mode?: "classic" | "random" } | null>(null);
   const [duelResultMessage, setDuelResultMessage] = useState("");
   const { user, loading, friendCode } = useAuth();
 
@@ -257,6 +257,7 @@ export default function Home() {
             duelMode={duelMode ? {
               duelId: duelMode.duelId,
               verbSeed: duelMode.verbSeed,
+              mode: duelMode.mode ?? "classic",
               onComplete: async (score) => {
                 if (!user || !duelMode) return;
                 const result = await submitDuelScore(duelMode.duelId, user.uid, score);

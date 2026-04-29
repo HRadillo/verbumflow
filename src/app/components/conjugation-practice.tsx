@@ -56,6 +56,7 @@ type CurrentQuestion = Question & {
 type DuelMode = {
   duelId: string;
   verbSeed: number;
+  mode?: "classic" | "random";
   onComplete: (score: number) => void;
 };
 
@@ -252,6 +253,30 @@ export function ConjugationPractice({
   const { user } = useAuth();
 
   const timerEnabled = !practiceOnly && !duelMode && competitiveMode;
+
+  // Keep duel lifecycle reactive: entering duel should always force a fresh playable state.
+  useEffect(() => {
+    if (!duelMode) return;
+
+    setGameMode(duelMode.mode ?? "classic");
+    setGameState("playing");
+    setCurrentQuestion(null);
+    setFeedback(null);
+    setIsAnswered(false);
+    setIsTimedOut(false);
+    setUserAnswer("");
+    setPracticeQueue([]);
+    setFillInTheBlankQueue([]);
+    setRecentRandomPairs([]);
+    setClassicVerbTenseQueue([]);
+    setClassicCycleIndex(0);
+    setCorrectAnswerCount(0);
+    setShowLevelUp(false);
+    setHasShownLevelUp(false);
+    setCurrentQuestionIsTyping(false);
+    setDuelScore(0);
+    setKey((k) => k + 1);
+  }, [duelMode]);
   const availableTenses = useMemo(
     () => Array.from(new Set(allPossibleQuestions.map((q) => q.tense))),
     []
