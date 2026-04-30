@@ -303,14 +303,29 @@ export function ConjugationPractice({
       if (currentMode === "multiple-choice") {
         const allTensesForVerb = verbData[verb] ?? {};
 
-        const sameVerbPronounCandidates = Object.entries(allTensesForVerb)
+        // Priority 1: same verb, same pronoun, different tenses
+        const samePronounAcrossTenses = Object.entries(allTensesForVerb)
           .map(([, pronounMap]) => pronounMap[pronoun])
-          .filter((candidate): candidate is string => Boolean(candidate));
+          .filter((c): c is string => Boolean(c) && c !== correctAnswer);
 
-        const uniqueSameVerbPronounOptions = Array.from(new Set(sameVerbPronounCandidates));
-        const uniqueWrongOptions = uniqueSameVerbPronounOptions.filter(
-          (candidate) => candidate !== correctAnswer
-        );
+        let uniqueWrongOptions = Array.from(new Set(samePronounAcrossTenses));
+
+        // Priority 2: same verb, same tense, different pronouns (fallback when not enough tense variants)
+        if (uniqueWrongOptions.length < 3) {
+          const sameTenseForms = Object.values(allTensesForVerb[tense] ?? {})
+            .filter((c): c is string => Boolean(c) && c !== correctAnswer && !uniqueWrongOptions.includes(c));
+          uniqueWrongOptions = [...uniqueWrongOptions, ...Array.from(new Set(sameTenseForms))];
+        }
+
+        // Priority 3: any conjugated form of the same verb (last resort)
+        if (uniqueWrongOptions.length < 3) {
+          const allVerbForms = Object.values(allTensesForVerb)
+            .flatMap((pm) => Object.values(pm))
+            .filter((c): c is string => Boolean(c) && c !== correctAnswer && !uniqueWrongOptions.includes(c));
+          uniqueWrongOptions = [...uniqueWrongOptions, ...Array.from(new Set(allVerbForms))];
+        }
+
+        uniqueWrongOptions = Array.from(new Set(uniqueWrongOptions)).filter((c) => c !== correctAnswer);
 
         if (uniqueWrongOptions.length < 3) {
           return null;
