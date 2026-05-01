@@ -222,8 +222,9 @@ export function ConjugationPractice({
   const [currentQuestionIsTyping, setCurrentQuestionIsTyping] = useState(false);
   // practiceOnly score
   const [practiceScore, setPracticeScore] = useState(0);
-  // last correct answer — shown in loss overlay
+  // last correct answer and user's wrong answer — shown in loss overlay
   const [lastCorrectAnswer, setLastCorrectAnswer] = useState<string | null>(null);
+  const [lossUserAnswer, setLossUserAnswer] = useState<string | null>(null);
   const [lossRuleHint, setLossRuleHint] = useState<string | null>(null);
   const [lossVerb, setLossVerb] = useState<string | null>(null);
   const [lossTense, setLossTense] = useState<string | null>(null);
@@ -384,7 +385,7 @@ export function ConjugationPractice({
       for (let attempt = 0; attempt < 10; attempt++) {
         const verb = pickWeightedVerb(currentStreak, null);
         const verbQuestions = filteredQuestions.filter(
-          (q) => q.verb === verb && !recentPairs.includes(`${q.verb}|${q.pronoun}`)
+          (q) => q.verb === verb && !recentPairs.includes(`${q.verb}|${q.tense}|${q.pronoun}`)
         );
         if (verbQuestions.length > 0) {
           return verbQuestions[Math.floor(Math.random() * verbQuestions.length)];
@@ -392,7 +393,7 @@ export function ConjugationPractice({
       }
       // Fallback: ignore weighting, just avoid recent pairs
       const available = filteredQuestions.filter(
-        (q) => !recentPairs.includes(`${q.verb}|${q.pronoun}`)
+        (q) => !recentPairs.includes(`${q.verb}|${q.tense}|${q.pronoun}`)
       );
       const pool = available.length > 0 ? available : filteredQuestions;
       return pool[Math.floor(Math.random() * pool.length)];
@@ -483,7 +484,7 @@ export function ConjugationPractice({
       if (gameMode === "random") {
         const trimmed = recentRandomPairs.slice(-4);
         const nextQ = pickRandomQuestion(trimmed, streak);
-        const pair = `${nextQ.verb}|${nextQ.pronoun}`;
+        const pair = `${nextQ.verb}|${nextQ.tense}|${nextQ.pronoun}`;
         setCurrentQuestion(getQuestionDetails(nextQ, "multiple-choice"));
         setRecentRandomPairs([...trimmed, pair]);
         setKey((prev) => prev + 1);
@@ -549,28 +550,14 @@ export function ConjugationPractice({
     }
 
     if (gameMode === "random") {
-      if (!forceFillIn && !useRandomMode && mode === "multiple-choice" && feedback === "correct" && currentQuestion) {
-        setMode("fill-in-the-blank");
-        const detail = getQuestionDetails(
-          {
-            verb: currentQuestion.verb,
-            tense: currentQuestion.tense,
-            pronoun: currentQuestion.pronoun,
-          },
-          "fill-in-the-blank"
-        );
-        setCurrentQuestion(detail);
-        setKey((prev) => prev + 1);
-      } else {
-        const trimmed = recentRandomPairs.slice(-4);
-        const nextQ = pickRandomQuestion(trimmed, streak);
-        const pair = `${nextQ.verb}|${nextQ.pronoun}`;
-        const nextMode: PracticeMode = forceFillIn || nextTyping ? "fill-in-the-blank" : "multiple-choice";
-        setMode(nextMode);
-        setCurrentQuestion(getQuestionDetails(nextQ, nextMode));
-        setRecentRandomPairs([...trimmed, pair]);
-        setKey((prev) => prev + 1);
-      }
+      const trimmed = recentRandomPairs.slice(-4);
+      const nextQ = pickRandomQuestion(trimmed, streak);
+      const pair = `${nextQ.verb}|${nextQ.tense}|${nextQ.pronoun}`;
+      const nextMode: PracticeMode = forceFillIn || nextTyping ? "fill-in-the-blank" : "multiple-choice";
+      setMode(nextMode);
+      setCurrentQuestion(getQuestionDetails(nextQ, nextMode));
+      setRecentRandomPairs([...trimmed, pair]);
+      setKey((prev) => prev + 1);
       return;
     }
 
@@ -626,7 +613,6 @@ export function ConjugationPractice({
       setKey((prev) => prev + 1);
     }
   }, [
-    feedback,
     onNextQuestion,
     getQuestionDetails,
     mode,
@@ -695,7 +681,7 @@ export function ConjugationPractice({
       // No valid je/j' question found — 1200ms fallback will handle it
     } else {
       const firstQ = pickRandomQuestion([], 0);
-      setRecentRandomPairs([`${firstQ.verb}|${firstQ.pronoun}`]);
+      setRecentRandomPairs([`${firstQ.verb}|${firstQ.tense}|${firstQ.pronoun}`]);
       setCurrentQuestion(getQuestionDetails(firstQ, "multiple-choice"));
     }
   }, [currentQuestion, gameMode, gameState, getQuestionDetails, pickRandomQuestion, duelMode, filteredClassicVerbTensePairs]);
@@ -745,7 +731,7 @@ export function ConjugationPractice({
       const fallback = pickRandomQuestion([], 0);
       setGameMode((prev) => (prev === "classic" && filteredClassicVerbTensePairs.length === 0 ? "random" : prev));
       setCurrentQuestion(getQuestionDetails(fallback, "multiple-choice"));
-      setRecentRandomPairs([`${fallback.verb}|${fallback.pronoun}`]);
+      setRecentRandomPairs([`${fallback.verb}|${fallback.tense}|${fallback.pronoun}`]);
     }, 1200);
 
     return () => clearTimeout(fallbackId);
@@ -912,6 +898,7 @@ export function ConjugationPractice({
     setHasShownLevelUp(false);
     setCurrentQuestionIsTyping(false);
     setLastCorrectAnswer(null);
+    setLossUserAnswer(null);
     setLossRuleHint(null);
     setLossVerb(null);
     setLossTense(null);
@@ -1062,6 +1049,7 @@ export function ConjugationPractice({
       setLastStreakValue(streak);
       setStreak(0);
       setLastCorrectAnswer(currentQuestion?.correctAnswer ?? null);
+      setLossUserAnswer(answer);
       const { rule, tip } = getRule(currentQuestion?.verb ?? "", currentQuestion?.tense ?? "");
       setLossRuleHint(rule || tip || null);
       setLossVerb(currentQuestion?.verb ?? null);
@@ -1142,6 +1130,7 @@ export function ConjugationPractice({
       setLossTense(currentQuestion.tense);
     }
     setLossSessionStats(buildLossSessionStats(lastStreakValue));
+    setLossUserAnswer(null);
     setIsAnswered(false);
     setIsTimedOut(false);
     setFeedback(null);
@@ -1456,7 +1445,7 @@ export function ConjugationPractice({
               color: "#0B1020",
             }}
           >
-            Streak broken.
+            Streak broken
           </h2>
           <p
             className="text-sm"
@@ -1482,20 +1471,40 @@ export function ConjugationPractice({
               {lossTense}
             </p>
           )}
-          {lastCorrectAnswer && (
-            <div className="mt-3 text-center">
-              <p
-                className="text-xs text-gray-400 mb-1"
-                style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-              >
-                The answer was
-              </p>
-              <p
-                className="text-lg font-bold"
-                style={{ color: "#22C55E", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-              >
-                {lastCorrectAnswer}
-              </p>
+          {(lossUserAnswer || lastCorrectAnswer) && (
+            <div className="mt-3 text-center space-y-3">
+              {lossUserAnswer && (
+                <div>
+                  <p
+                    className="text-xs text-gray-400 mb-1"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  >
+                    You answered
+                  </p>
+                  <p
+                    className="text-lg font-bold"
+                    style={{ color: "#FF6A4D", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  >
+                    {lossUserAnswer}
+                  </p>
+                </div>
+              )}
+              {lastCorrectAnswer && (
+                <div>
+                  <p
+                    className="text-xs text-gray-400 mb-1"
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  >
+                    The answer was
+                  </p>
+                  <p
+                    className="text-lg font-bold"
+                    style={{ color: "#22C55E", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  >
+                    {lastCorrectAnswer}
+                  </p>
+                </div>
+              )}
             </div>
           )}
           {lossRuleHint && (
