@@ -177,7 +177,7 @@ const normalizeUserConjugation = (value: string): string => {
   return value
     .trim()
     .toLowerCase()
-    .replace(/^((?:qu'|que\s+)?(?:j'|je|tu|il|elle|on|nous|vous|ils|elles)\s*)/i, "")
+    .replace(/^((?:qu'|que\s+)?(?:j'|je|tu|ils|elles|il|elle|on|nous|vous)\s*)/i, "")
     .trim();
 };
 
@@ -236,8 +236,14 @@ export function ConjugationPractice({
   // Duel mode state
   const [duelScore, setDuelScore] = useState(0);
 
+  // Loading screen state
+  const [showLoadingScreen, setShowLoadingScreen] = useState(false);
+  const [loadingExiting, setLoadingExiting] = useState(false);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const loadingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const loadingExitTimerRef = useRef<NodeJS.Timeout | null>(null);
   const prepareNextStageRef = useRef<() => void>(() => {});
   const hasShownRecordOverlayClassic = useRef(false);
   const hasShownRecordOverlayRandom = useRef(false);
@@ -250,6 +256,28 @@ export function ConjugationPractice({
   const { user } = useAuth();
 
   const timerEnabled = !practiceOnly && !duelMode && competitiveMode;
+
+  const triggerLoadingScreen = useCallback(() => {
+    if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+    if (loadingExitTimerRef.current) clearTimeout(loadingExitTimerRef.current);
+    setShowLoadingScreen(true);
+    setLoadingExiting(false);
+    loadingTimerRef.current = setTimeout(() => {
+      setLoadingExiting(true);
+      loadingExitTimerRef.current = setTimeout(() => {
+        setShowLoadingScreen(false);
+        setLoadingExiting(false);
+      }, 400);
+    }, 1100);
+  }, []);
+
+  // Cleanup loading timers on unmount
+  useEffect(() => {
+    return () => {
+      if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+      if (loadingExitTimerRef.current) clearTimeout(loadingExitTimerRef.current);
+    };
+  }, []);
 
   // Keep duel lifecycle reactive: entering duel should always force a fresh playable state.
   useEffect(() => {
@@ -273,7 +301,8 @@ export function ConjugationPractice({
     setCurrentQuestionIsTyping(false);
     setDuelScore(0);
     setKey((k) => k + 1);
-  }, [duelMode]);
+    triggerLoadingScreen();
+  }, [duelMode, triggerLoadingScreen]);
   const availableTenses = useMemo(
     () => Array.from(new Set(allPossibleQuestions.map((q) => q.tense))),
     []
@@ -855,6 +884,7 @@ export function ConjugationPractice({
     setClassicCycleIndex(0);
     setClassicVerbTenseQueue([]);
     setGameState("playing");
+    triggerLoadingScreen();
   };
 
   const handleTryAgain = () => {
@@ -1601,7 +1631,42 @@ export function ConjugationPractice({
       )}
 
       {/* GAME CARD */}
-      {(practiceOnly || duelMode || gameState === "playing") && !showHomeInterrupt && (
+      {/* LOADING SCREEN — shown when game starts/restarts (not in practiceOnly) */}
+      {!practiceOnly && showLoadingScreen && !showHomeInterrupt && (
+        <div
+          className="rounded-2xl shadow-xl p-8 text-center space-y-5"
+          style={{
+            backgroundColor: "#FAFAF7",
+            border: "1px solid rgba(31,75,255,0.12)",
+            transition: "opacity 0.4s ease-out",
+            opacity: loadingExiting ? 0 : 1,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <Flame
+              style={{
+                color: "#FF6A4D",
+                width: 52,
+                height: 52,
+                animation: "flameIgnite 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+              }}
+            />
+          </div>
+          <p
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontWeight: 800,
+              color: "#0B1020",
+              fontSize: "1.5rem",
+              animation: "gameLoadingTextReveal 0.5s ease-out 0.55s both",
+            }}
+          >
+            C&apos;est parti!
+          </p>
+        </div>
+      )}
+
+      {(practiceOnly || duelMode || gameState === "playing") && !showHomeInterrupt && !showLoadingScreen && (
         currentQuestion ? (
           <Card
             key={key}
