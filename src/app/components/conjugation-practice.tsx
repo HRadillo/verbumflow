@@ -7,6 +7,7 @@ import {
   verbs as allVerbs,
   allConjugations,
   getRule,
+  getVerbTranslationEn,
 } from "@/lib/verbs";
 import { Button } from "@/components/ui/button";
 import {
@@ -1192,6 +1193,9 @@ export function ConjugationPractice({
 
   // Determine which input mode to show (force multiple-choice in practiceOnly and duelMode)
   const displayMode: PracticeMode = practiceOnly || duelMode ? "multiple-choice" : mode;
+  const currentVerbTranslation = currentQuestion
+    ? getVerbTranslationEn(currentQuestion.verb)
+    : null;
 
   return (
     <div className="space-y-3">
@@ -1753,6 +1757,11 @@ export function ConjugationPractice({
                 }}
               >
                 {currentQuestion.verb}
+                {currentVerbTranslation ? (
+                  <span className="ml-2 text-base sm:text-lg font-semibold text-slate-500 align-middle">
+                    ({currentVerbTranslation})
+                  </span>
+                ) : null}
               </CardTitle>
               <CardDescription className="text-center">
                 <Badge
