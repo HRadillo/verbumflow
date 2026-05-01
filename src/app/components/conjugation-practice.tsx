@@ -294,9 +294,12 @@ export function ConjugationPractice({
   const getQuestionDetails = useCallback(
     (question: Question, currentMode: PracticeMode): CurrentQuestion | null => {
       const { verb, tense, pronoun } = question;
-      const correctAnswer = verbData[verb]?.[tense]?.[pronoun];
+      const rawAnswer = verbData[verb]?.[tense]?.[pronoun];
 
-      if (!correctAnswer) return null;
+      if (!rawAnswer) return null;
+      // Strip any leading pronoun (e.g. "ils parlent" → "parlent") so buttons and
+      // revealed answers never show the pronoun — the card header already shows it.
+      const correctAnswer = normalizeUserConjugation(rawAnswer);
 
       const { rule, tip } = getRule(verb, tense);
 
@@ -306,14 +309,18 @@ export function ConjugationPractice({
         // Priority 1: same verb, same pronoun, different tenses
         const samePronounAcrossTenses = Object.entries(allTensesForVerb)
           .map(([, pronounMap]) => pronounMap[pronoun])
-          .filter((c): c is string => Boolean(c) && c !== correctAnswer);
+          .filter((c): c is string => Boolean(c))
+          .map(normalizeUserConjugation)
+          .filter((c) => c !== correctAnswer);
 
         let uniqueWrongOptions = Array.from(new Set(samePronounAcrossTenses));
 
         // Priority 2: same verb, same tense, different pronouns (fallback when not enough tense variants)
         if (uniqueWrongOptions.length < 3) {
           const sameTenseForms = Object.values(allTensesForVerb[tense] ?? {})
-            .filter((c): c is string => Boolean(c) && c !== correctAnswer && !uniqueWrongOptions.includes(c));
+            .filter((c): c is string => Boolean(c))
+            .map(normalizeUserConjugation)
+            .filter((c) => c !== correctAnswer && !uniqueWrongOptions.includes(c));
           uniqueWrongOptions = [...uniqueWrongOptions, ...Array.from(new Set(sameTenseForms))];
         }
 
@@ -321,7 +328,9 @@ export function ConjugationPractice({
         if (uniqueWrongOptions.length < 3) {
           const allVerbForms = Object.values(allTensesForVerb)
             .flatMap((pm) => Object.values(pm))
-            .filter((c): c is string => Boolean(c) && c !== correctAnswer && !uniqueWrongOptions.includes(c));
+            .filter((c): c is string => Boolean(c))
+            .map(normalizeUserConjugation)
+            .filter((c) => c !== correctAnswer && !uniqueWrongOptions.includes(c));
           uniqueWrongOptions = [...uniqueWrongOptions, ...Array.from(new Set(allVerbForms))];
         }
 
@@ -631,24 +640,30 @@ export function ConjugationPractice({
         setCurrentQuestion(getQuestionDetails(firstQ, "multiple-choice"));
         return;
       }
-      const verb = pickWeightedVerb(0, null);
-      const verbPairs = filteredClassicVerbTensePairs.filter((p) => p.verb === verb);
-      const firstPair =
-        verbPairs.length > 0
-          ? verbPairs[Math.floor(Math.random() * verbPairs.length)]
-          : filteredClassicVerbTensePairs[0];
-      const firstPronounKey = getClassicPronounKey(firstPair.verb, firstPair.tense, 0);
+      // Build an ordered candidate list: weighted preferred verb first, then shuffled rest.
+      // Iterate until we find a pair whose je/j' question has enough distinct wrong options.
+      const preferredVerb = pickWeightedVerb(0, null);
+      const preferred = filteredClassicVerbTensePairs.filter((p) => p.verb === preferredVerb);
+      const rest = shuffleArray(filteredClassicVerbTensePairs.filter((p) => p.verb !== preferredVerb));
+      const candidates = [...preferred, ...rest];
+
       setClassicVerbTenseQueue([]);
-      setLastClassicVerb(firstPair.verb);
       setClassicCycleIndex(0);
-      if (firstPronounKey) {
-        setCurrentQuestion(
-          getQuestionDetails(
-            { verb: firstPair.verb, tense: firstPair.tense, pronoun: firstPronounKey },
-            "multiple-choice"
-          )
+
+      for (const pair of candidates) {
+        const pronounKey = getClassicPronounKey(pair.verb, pair.tense, 0);
+        if (!pronounKey) continue;
+        const details = getQuestionDetails(
+          { verb: pair.verb, tense: pair.tense, pronoun: pronounKey },
+          "multiple-choice"
         );
+        if (details) {
+          setLastClassicVerb(pair.verb);
+          setCurrentQuestion(details);
+          return;
+        }
       }
+      // No valid je/j' question found — 1200ms fallback will handle it
     } else {
       const firstQ = pickRandomQuestion([], 0);
       setRecentRandomPairs([`${firstQ.verb}|${firstQ.pronoun}`]);
@@ -676,17 +691,39 @@ export function ConjugationPractice({
     if (gameState !== "playing" || currentQuestion || showLevelUp) return;
 
     const fallbackId = setTimeout(() => {
+      setQuestionLoadAttempts((prev) => prev + 1);
+
+      // In classic mode, try to find a valid je/j' question before falling back to random.
+      if (gameMode === "classic" && filteredClassicVerbTensePairs.length > 0) {
+        const shuffled = shuffleArray([...filteredClassicVerbTensePairs]);
+        for (const pair of shuffled) {
+          const pronounKey = getClassicPronounKey(pair.verb, pair.tense, 0);
+          if (!pronounKey) continue;
+          const details = getQuestionDetails(
+            { verb: pair.verb, tense: pair.tense, pronoun: pronounKey },
+            "multiple-choice"
+          );
+          if (details) {
+            setClassicCycleIndex(0);
+            setLastClassicVerb(pair.verb);
+            setCurrentQuestion(details);
+            return;
+          }
+        }
+      }
+
+      // Fallback: random question (also used when no classic pair yields enough wrong options)
       const fallback = pickRandomQuestion([], 0);
       setGameMode((prev) => (prev === "classic" && filteredClassicVerbTensePairs.length === 0 ? "random" : prev));
       setCurrentQuestion(getQuestionDetails(fallback, "multiple-choice"));
       setRecentRandomPairs([`${fallback.verb}|${fallback.pronoun}`]);
-      setQuestionLoadAttempts((prev) => prev + 1);
     }, 1200);
 
     return () => clearTimeout(fallbackId);
   }, [
     currentQuestion,
     gameState,
+    gameMode,
     getQuestionDetails,
     pickRandomQuestion,
     filteredClassicVerbTensePairs.length,
