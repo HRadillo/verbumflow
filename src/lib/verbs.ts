@@ -105,6 +105,16 @@ export const verbData: VerbData = buildVerbDataFromSource(
   sourceConjugations as Record<string, RawConjugationEntry>
 );
 
+export const verbTranslationsEn: Record<string, string> = Object.fromEntries(
+  Object.entries(sourceConjugations as Record<string, RawConjugationEntry>)
+    .map(([verb, payload]) => [verb, payload.translation_en?.trim() ?? ""])
+    .filter(([, translation]) => translation.length > 0)
+);
+
+export function getVerbTranslationEn(verb: string): string | null {
+  return verbTranslationsEn[verb] ?? null;
+}
+
 const rules: Record<string, Record<string, string>> = {
     "Présent": {
         "er": "For regular -er verbs, drop the -er and add endings: -e, -es, -e, -ons, -ez, -ent.",
