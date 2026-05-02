@@ -27,6 +27,7 @@ import {
   Check,
 } from "lucide-react";
 import { buildWhatsAppInvite } from "@/lib/utils";
+import { type AppLanguage, t } from "@/lib/i18n";
 
 type ActiveScreen = "home" | "leaderboard" | "study" | "help";
 
@@ -40,6 +41,8 @@ type UserMenuProps = {
   friendsPanelOpen?: boolean;
   setFriendsPanelOpen?: (open: boolean) => void;
   pendingRequestCount?: number;
+  language?: AppLanguage;
+  onLanguageChange?: (lang: AppLanguage) => void;
 };
 
 const handleChallengeFriend = () => {
@@ -59,6 +62,8 @@ export function UserMenu({
   friendsPanelOpen = false,
   setFriendsPanelOpen,
   pendingRequestCount = 0,
+  language = "en",
+  onLanguageChange,
 }: UserMenuProps) {
   const { user, signInWithGoogle, signOut, isGuest, loading } = useAuth();
   const [copied, setCopied] = useState(false);
@@ -144,6 +149,40 @@ export function UserMenu({
           )}
         </div>
       )}
+
+      {/* Language switcher — compact EN/ES toggle */}
+      {onLanguageChange && (
+        <div
+          className="flex items-center rounded-full overflow-hidden"
+          style={{ border: "1px solid rgba(255,255,255,0.2)" }}
+          aria-label={t("language.label", language)}
+        >
+          <button
+            onClick={() => onLanguageChange("en")}
+            className="px-2 py-1 text-[11px] font-bold transition-colors"
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              backgroundColor: language === "en" ? "#1F4BFF" : "transparent",
+              color: language === "en" ? "#FFFFFF" : "rgba(255,255,255,0.45)",
+            }}
+            aria-label={t("language.english", language)}
+          >
+            EN
+          </button>
+          <button
+            onClick={() => onLanguageChange("es")}
+            className="px-2 py-1 text-[11px] font-bold transition-colors"
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              backgroundColor: language === "es" ? "#1F4BFF" : "transparent",
+              color: language === "es" ? "#FFFFFF" : "rgba(255,255,255,0.45)",
+            }}
+            aria-label={t("language.spanish", language)}
+          >
+            ES
+          </button>
+        </div>
+      )}
     </div>
   );
 
@@ -155,8 +194,8 @@ export function UserMenu({
         top: "calc(env(safe-area-inset-top, 0px) + 12px)",
         right: "calc(env(safe-area-inset-right, 0px) + 12px)",
       }}
-      title="Sign in with Google"
-      aria-label="Sign in with Google"
+      title={t("user.signIn", language)}
+      aria-label={t("user.signIn", language)}
     >
       <LogIn size={20} />
     </button>
@@ -236,7 +275,7 @@ export function UserMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onShowLeaderboard}>
           <Trophy className="mr-2 h-4 w-4" />
-          Leaderboard
+          {t("leaderboard.title", language)}
         </DropdownMenuItem>
         {onShowOnboarding && (
           <DropdownMenuItem onClick={onShowOnboarding}>
@@ -247,7 +286,7 @@ export function UserMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={signOut}>
           <LogOut className="mr-2 h-4 w-4" />
-          Sign out
+          {t("user.signOut", language)}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

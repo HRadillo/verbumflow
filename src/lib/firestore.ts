@@ -76,6 +76,9 @@ export type UserStats = {
   // Friend code system
   friendCode?: string;
   friendCount?: number;
+
+  // UI preference
+  preferredLanguage?: "en" | "es";
 };
 
 export type Friendship = {
@@ -138,6 +141,13 @@ export async function initializeUserStats(
   }, { merge: true });
 
   return newStats;
+}
+
+export async function updatePreferredLanguage(
+  uid: string,
+  language: "en" | "es"
+): Promise<void> {
+  await updateDoc(getUserRef(uid), { preferredLanguage: language });
 }
 
 export async function recordAnswer(
