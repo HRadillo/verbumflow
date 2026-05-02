@@ -1476,7 +1476,10 @@ export function ConjugationPractice({
                 color: "rgba(11,16,32,0.7)",
               }}
             >
-              {lossVerb} ({formatVerbTranslation(getVerbTranslation(lossVerb), language)})
+              {lossVerb}
+              {formatVerbTranslation(getVerbTranslation(lossVerb), language)
+                ? ` (${formatVerbTranslation(getVerbTranslation(lossVerb), language)})`
+                : ""}
               {' · '}
               {lossTense}
             </p>
@@ -1763,12 +1766,14 @@ export function ConjugationPractice({
                 }}
               >
                 {currentQuestion.verb}
-                <span
-                  className="mt-1 block px-2 text-sm sm:text-base font-semibold text-slate-500"
-                  style={{ overflowWrap: "anywhere", lineHeight: 1.35 }}
-                >
-                  ({formattedVerbTranslation})
-                </span>
+                {formattedVerbTranslation && (
+                  <span
+                    className="mt-1 block px-2 text-sm sm:text-base font-semibold text-slate-500"
+                    style={{ overflowWrap: "anywhere", lineHeight: 1.35 }}
+                  >
+                    ({formattedVerbTranslation})
+                  </span>
+                )}
               </CardTitle>
               <CardDescription className="text-center">
                 <Badge

@@ -153,13 +153,13 @@ export function UserMenu({
       {/* Language switcher — compact EN/ES toggle */}
       {onLanguageChange && (
         <div
-          className="flex items-center rounded-full overflow-hidden"
+          className="flex shrink-0 items-center rounded-full overflow-hidden"
           style={{ border: "1px solid rgba(255,255,255,0.2)" }}
           aria-label={t("language.label", language)}
         >
           <button
             onClick={() => onLanguageChange("en")}
-            className="px-2 py-1 text-[11px] font-bold transition-colors"
+            className="px-2.5 py-1.5 text-[11px] font-bold transition-colors leading-none"
             style={{
               fontFamily: "'Plus Jakarta Sans', sans-serif",
               backgroundColor: language === "en" ? "#1F4BFF" : "transparent",
@@ -171,7 +171,7 @@ export function UserMenu({
           </button>
           <button
             onClick={() => onLanguageChange("es")}
-            className="px-2 py-1 text-[11px] font-bold transition-colors"
+            className="px-2.5 py-1.5 text-[11px] font-bold transition-colors leading-none"
             style={{
               fontFamily: "'Plus Jakarta Sans', sans-serif",
               backgroundColor: language === "es" ? "#1F4BFF" : "transparent",
