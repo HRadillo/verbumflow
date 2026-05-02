@@ -7,7 +7,7 @@ import {
   verbs as allVerbs,
   allConjugations,
   getRule,
-  getVerbTranslationEn,
+  getVerbTranslation,
 } from "@/lib/verbs";
 import { Button } from "@/components/ui/button";
 import {
@@ -1198,12 +1198,12 @@ export function ConjugationPractice({
   // Determine which input mode to show (force multiple-choice in practiceOnly and duelMode)
   const displayMode: PracticeMode = practiceOnly || duelMode ? "multiple-choice" : mode;
   const currentVerbTranslation = currentQuestion
-    ? getVerbTranslationEn(currentQuestion.verb)
+    ? getVerbTranslation(currentQuestion.verb)
     : null;
-  if (process.env.NODE_ENV !== "production" && currentQuestion && !currentVerbTranslation) {
-    console.warn(`Missing English translation for verb: ${currentQuestion.verb}`);
+  if (process.env.NODE_ENV !== "production" && currentQuestion && !currentVerbTranslation?.[language]) {
+    console.warn(`Missing ${language.toUpperCase()} translation for verb: ${currentQuestion.verb}`);
   }
-  const formattedVerbTranslation = formatVerbTranslation(currentVerbTranslation);
+  const formattedVerbTranslation = formatVerbTranslation(currentVerbTranslation, language);
 
   return (
     <div className="space-y-3">
@@ -1476,7 +1476,7 @@ export function ConjugationPractice({
                 color: "rgba(11,16,32,0.7)",
               }}
             >
-              {lossVerb} ({formatVerbTranslation(getVerbTranslationEn(lossVerb))})
+              {lossVerb} ({formatVerbTranslation(getVerbTranslation(lossVerb), language)})
               {' · '}
               {lossTense}
             </p>
