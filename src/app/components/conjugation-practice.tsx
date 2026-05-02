@@ -182,6 +182,13 @@ const normalizeUserConjugation = (value: string): string => {
     .trim();
 };
 
+const formatVerbTranslation = (translation: string | null): string | null => {
+  if (!translation) return null;
+  const normalized = translation.replace(/^to\s+/i, "").trim().toLowerCase();
+  if (!normalized) return null;
+  return `to ${normalized}`;
+};
+
 export function ConjugationPractice({
   onNextQuestion,
   onStatsUpdate,
@@ -1196,6 +1203,7 @@ export function ConjugationPractice({
   const currentVerbTranslation = currentQuestion
     ? getVerbTranslationEn(currentQuestion.verb)
     : null;
+  const formattedVerbTranslation = formatVerbTranslation(currentVerbTranslation);
 
   return (
     <div className="space-y-3">
@@ -1757,9 +1765,12 @@ export function ConjugationPractice({
                 }}
               >
                 {currentQuestion.verb}
-                {currentVerbTranslation ? (
-                  <span className="ml-2 text-base sm:text-lg font-semibold text-slate-500 align-middle">
-                    ({currentVerbTranslation})
+                {formattedVerbTranslation ? (
+                  <span
+                    className="mt-1 block px-2 text-sm sm:text-base font-semibold text-slate-500"
+                    style={{ overflowWrap: "anywhere", lineHeight: 1.35 }}
+                  >
+                    ({formattedVerbTranslation})
                   </span>
                 ) : null}
               </CardTitle>
