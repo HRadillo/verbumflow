@@ -16,10 +16,12 @@ import { Badge } from "@/components/ui/badge";
 import { Flame, Target, Calendar, Trophy, User, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlayerStatsDialog } from "@/app/components/player-stats-dialog";
+import { type AppLanguage, t } from "@/lib/i18n";
 
 type LeaderboardProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  language?: AppLanguage;
 };
 
 const podiumColors = [
@@ -124,7 +126,7 @@ function LeaderboardList({
   );
 }
 
-export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
+export function Leaderboard({ open, onOpenChange, language = "en" }: LeaderboardProps) {
   const { user } = useAuth();
   const [classicBoard, setClassicBoard] = useState<LeaderboardEntry[]>([]);
   const [randomBoard, setRandomBoard] = useState<LeaderboardEntry[]>([]);
@@ -171,7 +173,7 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
             style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
             <Trophy className="h-5 w-5 text-[#FF6A4D]" />
-            Leaderboard
+            {t("leaderboard.title", language)}
           </DialogTitle>
         </DialogHeader>
 
@@ -188,7 +190,7 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
                 title="Best Classic Streak — longest streak in Classic Mode (same verb, all pronouns)"
                 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
-                <Flame className="h-3 w-3" /> Classic
+                <Flame className="h-3 w-3" /> {t("leaderboard.classic", language)}
               </TabsTrigger>
               <TabsTrigger
                 value="random"
@@ -196,7 +198,7 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
                 title="Best Random Streak — longest streak in Random Mode (fully random verb + tense + pronoun)"
                 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
-                <Shuffle className="h-3 w-3" /> Random
+                <Shuffle className="h-3 w-3" /> {t("leaderboard.random", language)}
               </TabsTrigger>
               <TabsTrigger
                 value="correct"
@@ -204,7 +206,7 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
                 title="Total Correct — all-time correct answers across both modes"
                 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
-                <Target className="h-3 w-3" /> All-Time
+                <Target className="h-3 w-3" /> {t("leaderboard.allTime", language)}
               </TabsTrigger>
               <TabsTrigger
                 value="daily"
@@ -212,7 +214,7 @@ export function Leaderboard({ open, onOpenChange }: LeaderboardProps) {
                 title="Daily Streak — consecutive days you've practiced"
                 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
-                <Calendar className="h-3 w-3" /> Daily
+                <Calendar className="h-3 w-3" /> {t("leaderboard.daily", language)}
               </TabsTrigger>
             </TabsList>
 

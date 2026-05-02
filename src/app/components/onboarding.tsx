@@ -5,10 +5,12 @@ import React from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { LogIn, ArrowRight } from "lucide-react";
+import { type AppLanguage, t } from "@/lib/i18n";
 
 type OnboardingProps = {
   onClose: () => void;
   onOpenStudy?: () => void;
+  language?: AppLanguage;
 };
 
 const HOW_TO_PLAY = [
@@ -39,7 +41,7 @@ const HOW_TO_PLAY = [
   },
 ];
 
-export function Onboarding({ onClose, onOpenStudy }: OnboardingProps) {
+export function Onboarding({ onClose, onOpenStudy, language = "en" }: OnboardingProps) {
   const { signInWithGoogle } = useAuth();
 
   const handleSignIn = async () => {
@@ -148,7 +150,7 @@ export function Onboarding({ onClose, onOpenStudy }: OnboardingProps) {
               }}
             >
               <LogIn className="h-4 w-4" />
-              Sign in with Google
+              {t("user.signIn", language)} with Google
             </Button>
             <Button
               onClick={onClose}
@@ -156,7 +158,7 @@ export function Onboarding({ onClose, onOpenStudy }: OnboardingProps) {
               className="w-full gap-2 text-gray-600 hover:text-gray-900"
               style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
             >
-              Play as Guest
+              {t("onboarding.continue", language)}
               <ArrowRight className="h-4 w-4" />
             </Button>
             {onOpenStudy && (
@@ -166,7 +168,7 @@ export function Onboarding({ onClose, onOpenStudy }: OnboardingProps) {
                 className="w-full gap-2 font-semibold text-gray-700 border-gray-300 hover:border-[#1F4BFF] hover:text-[#1F4BFF]"
                 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: "0.875rem" }}
               >
-                📖 Study Mode
+                📖 {t("study.title", language)}
               </Button>
             )}
           </div>

@@ -3,10 +3,12 @@
 
 import React, { useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { type AppLanguage, t } from "@/lib/i18n";
 
 type FelicitationsProps = {
   type: "personal" | "global";
   onDismiss: () => void;
+  language?: AppLanguage;
 };
 
 // Confetti piece definition
@@ -40,7 +42,7 @@ function generateConfetti(): ConfettiPiece[] {
   return pieces;
 }
 
-export function Felicitations({ type, onDismiss }: FelicitationsProps) {
+export function Felicitations({ type, onDismiss, language = "en" }: FelicitationsProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const confetti = useMemo(() => generateConfetti(), []);
 
@@ -106,15 +108,15 @@ export function Felicitations({ type, onDismiss }: FelicitationsProps) {
           style={{ color: "#0B1020", opacity: 0.7 }}
         >
           {type === "global"
-            ? "You're the new #1 on the leaderboard!"
-            : "You just set a new personal best streak!"}
+            ? (language === "es" ? "¡Eres el nuevo #1 en la tabla de posiciones!" : "You're the new #1 on the leaderboard!")
+            : (language === "es" ? "¡Acabas de establecer un nuevo récord personal!" : "You just set a new personal best streak!")}
         </p>
         <Button
           onClick={onDismiss}
           className="w-full font-semibold text-white"
           style={{ backgroundColor: "#1F4BFF" }}
         >
-          Keep Going 🔥
+          {language === "es" ? "¡Seguir! 🔥" : "Keep Going 🔥"}
         </Button>
       </div>
     </div>

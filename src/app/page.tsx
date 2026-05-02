@@ -11,7 +11,8 @@ import { FriendsPanel } from "@/app/components/friends-panel";
 import { SplashScreen } from "@/app/components/splash-screen";
 import { useAuth } from "@/contexts/auth-context";
 import { useState, useEffect, useCallback } from "react";
-import { initializeUserStats, submitDuelScore, type UserStats } from "@/lib/firestore";
+import { initializeUserStats, submitDuelScore, updatePreferredLanguage, type UserStats } from "@/lib/firestore";
+import { type AppLanguage, LANGUAGE_STORAGE_KEY, t } from "@/lib/i18n";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Heart } from "lucide-react";
@@ -32,7 +33,27 @@ export default function Home() {
   const [currentGameState, setCurrentGameState] = useState<"idle" | "playing" | "lost">("idle");
   const [duelMode, setDuelMode] = useState<{ duelId: string; verbSeed: number; mode?: "classic" | "random" } | null>(null);
   const [duelResultMessage, setDuelResultMessage] = useState("");
+  const [language, setLanguage] = useState<AppLanguage>("en");
   const { user, loading, friendCode } = useAuth();
+
+  // Read language preference from localStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored === "en" || stored === "es") {
+      setLanguage(stored);
+    }
+  }, []);
+
+  const handleLanguageChange = useCallback((lang: AppLanguage) => {
+    setLanguage(lang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+    }
+    if (user) {
+      updatePreferredLanguage(user.uid, lang).catch(console.error);
+    }
+  }, [user]);
 
   // Manage onboarding visibility and user stats based on auth state
   useEffect(() => {
@@ -48,6 +69,16 @@ export default function Home() {
         user.photoURL
       ).then((stats) => {
         setUserStats(stats);
+        if (stats.preferredLanguage) {
+          setLanguage(stats.preferredLanguage);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(LANGUAGE_STORAGE_KEY, stats.preferredLanguage);
+          }
+        } else {
+          const storedLang = typeof window !== "undefined" ? localStorage.getItem(LANGUAGE_STORAGE_KEY) : null;
+          const langToSave: AppLanguage = (storedLang === "en" || storedLang === "es") ? storedLang : "en";
+          updatePreferredLanguage(user.uid, langToSave).catch(console.error);
+        }
       });
     } else {
       setUserStats(null);
@@ -222,7 +253,7 @@ export default function Home() {
               opacity: 0.6,
             }}
           >
-            LEARN AND COMPETE
+            {t("app.tagline", language)}
           </p>
         </header>
 
@@ -238,6 +269,8 @@ export default function Home() {
             friendsPanelOpen={friendsPanelOpen}
             setFriendsPanelOpen={setFriendsPanelOpen}
             pendingRequestCount={pendingRequestCount}
+            language={language}
+            onLanguageChange={handleLanguageChange}
           />
         </div>
       </div>
@@ -254,6 +287,7 @@ export default function Home() {
             onHomeInterruptDismiss={() => setShowHomeInterrupt(false)}
             onGoHome={() => setShowHomeInterrupt(false)}
             onGameStateChange={setCurrentGameState}
+            language={language}
             duelMode={duelMode ? {
               duelId: duelMode.duelId,
               verbSeed: duelMode.verbSeed,
@@ -314,24 +348,26 @@ export default function Home() {
       )}
 
       {/* Leaderboard modal */}
-      <Leaderboard open={showLeaderboard} onOpenChange={setShowLeaderboard} />
+      <Leaderboard open={showLeaderboard} onOpenChange={setShowLeaderboard} language={language} />
 
       {/* Onboarding overlay */}
       {showOnboarding && (
         <Onboarding
           onClose={() => setShowOnboarding(false)}
           onOpenStudy={handleOpenStudy}
+          language={language}
         />
       )}
 
       {/* Study Mode modal */}
-      <StudyMode open={showStudyMode} onOpenChange={setShowStudyMode} />
+      <StudyMode open={showStudyMode} onOpenChange={setShowStudyMode} language={language} />
 
       {/* Félicitations overlay */}
       {felicitationsType && (
         <Felicitations
           type={felicitationsType}
           onDismiss={handleDismissFelicitations}
+          language={language}
         />
       )}
     </main>

@@ -17,10 +17,12 @@ import {
 } from "@/components/ui/accordion";
 import { ConjugationPractice } from "@/app/components/conjugation-practice";
 import { getRule } from "@/lib/verbs";
+import { type AppLanguage, t } from "@/lib/i18n";
 
 type StudyModeProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  language?: AppLanguage;
 };
 
 type TenseInfo = {
@@ -163,7 +165,7 @@ function RulesTab() {
   );
 }
 
-export function StudyMode({ open, onOpenChange }: StudyModeProps) {
+export function StudyMode({ open, onOpenChange, language = "en" }: StudyModeProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -175,7 +177,7 @@ export function StudyMode({ open, onOpenChange }: StudyModeProps) {
             className="text-xl font-extrabold"
             style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "#0B1020" }}
           >
-            📖 Study Mode
+            📖 {t("study.title", language)}
           </DialogTitle>
         </DialogHeader>
 
@@ -193,7 +195,7 @@ export function StudyMode({ open, onOpenChange }: StudyModeProps) {
               className="flex-1 text-xs font-semibold data-[state=active]:bg-[#1F4BFF] data-[state=active]:text-white"
               style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
             >
-              🎮 Practice
+              🎮 {t("study.practiceOnly", language)}
             </TabsTrigger>
           </TabsList>
 
@@ -217,6 +219,7 @@ export function StudyMode({ open, onOpenChange }: StudyModeProps) {
               <ConjugationPractice
                 onNextQuestion={() => {}}
                 practiceOnly={true}
+                language={language}
               />
             </div>
           </TabsContent>

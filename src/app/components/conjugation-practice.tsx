@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { ArrowRight, Flame, Star, Zap } from "lucide-react";
 import { cn, formatVerbTranslation } from "@/lib/utils";
+import { type AppLanguage, t } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/auth-context";
@@ -72,6 +73,7 @@ type ConjugationPracticeProps = {
   onGoHome?: () => void;
   onGameStateChange?: (state: GameState) => void;
   duelMode?: DuelMode;
+  language?: AppLanguage;
 };
 
 const TIMER_DURATION = 15;
@@ -194,6 +196,7 @@ export function ConjugationPractice({
   onGoHome,
   onGameStateChange,
   duelMode,
+  language = "en",
 }: ConjugationPracticeProps) {
   const [gameState, setGameState] = useState<GameState>(
     practiceOnly || duelMode ? "playing" : "idle"
@@ -1249,7 +1252,7 @@ export function ConjugationPractice({
           )}
           style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
         >
-          🎮 Classic
+          🎮 {t("game.classic", language)}
         </button>
         <button
           onClick={() => handleSwitchGameMode("random")}
@@ -1261,7 +1264,7 @@ export function ConjugationPractice({
           )}
           style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
         >
-          🎲 Random
+          🎲 {t("game.random", language)}
         </button>
       </div>}
 
@@ -1276,7 +1279,7 @@ export function ConjugationPractice({
             )}
             style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
-            ⚡ Competitive
+            ⚡ {t("game.competitive", language)}
           </button>
           <button
             onClick={() => handleSwitchCompetitiveMode(!competitiveMode)}
@@ -1299,7 +1302,7 @@ export function ConjugationPractice({
             )}
             style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
-            Casual
+            {t("game.casual", language)}
           </button>
         </div>
       )}
@@ -1379,34 +1382,32 @@ export function ConjugationPractice({
           <h2
             className="text-2xl"
             style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontFamily: "’Plus Jakarta Sans’, sans-serif",
               fontWeight: 800,
               color: "#0B1020",
             }}
           >
-            Ready to streak?
+            {t("game.readyTitle", language)}
           </h2>
           <p
             className="text-sm"
             style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontFamily: "’Plus Jakarta Sans’, sans-serif",
               color: "rgba(11,16,32,0.5)",
             }}
           >
-            {competitiveMode
-              ? "Answer fast. Answer right. Don’t stop."
-              : "Relax and practice. No timer, no pressure."}
+            {t("game.readySubtitle", language)}
           </p>
           <button
             onClick={handleStartStreak}
             className="w-full h-14 rounded-xl text-white font-bold text-base transition-all hover:opacity-90 active:scale-[0.98]"
             style={{
               backgroundColor: "#1F4BFF",
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontFamily: "’Plus Jakarta Sans’, sans-serif",
               fontWeight: 700,
             }}
           >
-            Start Streak →
+            {t("game.start", language)} →
           </button>
           {userStats && (
             <div className="flex justify-center gap-3 mt-3">
@@ -1454,7 +1455,7 @@ export function ConjugationPractice({
               color: "#0B1020",
             }}
           >
-            Streak broken
+            {t("game.streakBroken", language)}
           </h2>
           <p
             className="text-sm"
@@ -1590,7 +1591,7 @@ export function ConjugationPractice({
               fontWeight: 700,
             }}
           >
-            Try Again →
+            {t("game.tryAgain", language)} →
           </button>
         </div>
       )}
@@ -1819,7 +1820,7 @@ export function ConjugationPractice({
                     fontFamily: "'Plus Jakarta Sans', sans-serif",
                   }}
                 >
-                  ⏱ Time&apos;s up!
+                  ⏱ {t("game.timeExpired", language)}
                 </div>
               )}
 
@@ -1900,7 +1901,7 @@ export function ConjugationPractice({
                     value={userAnswer}
                     onChange={(e) => setUserAnswer(e.target.value)}
                     disabled={isAnswered}
-                    placeholder="Write only the conjugated verb (no pronoun)..."
+                    placeholder={t("game.typeAnswer", language)}
                     className={cn("text-center text-lg h-14", getInputClass())}
                     autoCapitalize="none"
                     autoComplete="off"
@@ -1969,7 +1970,7 @@ export function ConjugationPractice({
                   className="gap-2 animate-in fade-in-50 bg-[#FF6A4D] hover:bg-[#D95A3F] text-white"
                   style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
-                  Next <ArrowRight className="h-4 w-4" />
+                  {t("game.next", language)} <ArrowRight className="h-4 w-4" />
                 </Button>
               )}
               {/* Next after correct answer */}
@@ -1979,7 +1980,7 @@ export function ConjugationPractice({
                   className="gap-2 animate-in fade-in-50 bg-[#1F4BFF] hover:bg-[#1637CC] text-white"
                   style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
-                  Next <ArrowRight className="h-4 w-4" />
+                  {t("game.next", language)} <ArrowRight className="h-4 w-4" />
                 </Button>
               )}
               {/* Next in practiceOnly or duelMode wrong answer */}
@@ -1989,7 +1990,7 @@ export function ConjugationPractice({
                   className="gap-2 animate-in fade-in-50 bg-[#FF6A4D] hover:bg-[#D95A3F] text-white"
                   style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
-                  Next <ArrowRight className="h-4 w-4" />
+                  {t("game.next", language)} <ArrowRight className="h-4 w-4" />
                 </Button>
               )}
             </CardFooter>
