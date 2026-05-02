@@ -23,3 +23,10 @@ export function buildWhatsAppInvite(friendCode: string): string {
   );
   return `https://wa.me/?text=${message}`;
 }
+
+export function formatVerbTranslation(translation?: string | null): string {
+  if (!translation) return "translation unavailable";
+  const clean = translation.trim();
+  if (clean.toLowerCase().startsWith("to ")) return clean;
+  return `to ${clean}`;
+}
