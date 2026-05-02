@@ -31,17 +31,24 @@ export function formatVerbTranslation(
   translation: LocalizedTranslation | string | undefined | null,
   language: AppLanguage
 ): string {
-  if (!translation) return "translation unavailable";
+  if (!translation) return "";
 
-  const raw = typeof translation === "string" ? translation : translation[language];
-  if (!raw) return "translation unavailable";
-
-  const clean = raw.trim();
-  if (!clean) return "translation unavailable";
-
-  if (language === "en") {
-    return clean.toLowerCase().startsWith("to ") ? clean : `to ${clean}`;
+  if (typeof translation === "string") {
+    const clean = translation.trim();
+    if (!clean) return "";
+    return language === "en" && !clean.toLowerCase().startsWith("to ") ? `to ${clean}` : clean;
   }
 
-  return clean;
+  const langSpecific = translation[language]?.trim();
+  if (langSpecific) {
+    if (language === "en") {
+      return langSpecific.toLowerCase().startsWith("to ") ? langSpecific : `to ${langSpecific}`;
+    }
+    return langSpecific;
+  }
+
+  // Fall back to English translation when the requested language is missing
+  const enFallback = translation.en?.trim();
+  if (!enFallback) return "";
+  return enFallback.toLowerCase().startsWith("to ") ? enFallback : `to ${enFallback}`;
 }

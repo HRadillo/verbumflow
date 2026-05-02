@@ -1,4 +1,5 @@
 import sourceConjugations from "../../docs/references/french_conjugations.json";
+import spanishVerbTranslations from "./verb-translations-es";
 
 export type VerbTenses = {
   [key: string]: {
@@ -116,7 +117,7 @@ export const verbTranslations: Record<string, LocalizedTranslation> = Object.fro
     verb,
     {
       en: payload.translation_en?.trim() ?? "",
-      es: payload.translation_es?.trim() ?? "",
+      es: payload.translation_es?.trim() || spanishVerbTranslations[verb] || "",
     },
   ])
 );
