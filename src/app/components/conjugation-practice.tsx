@@ -19,7 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ArrowRight, Flame, Star, Zap } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatVerbTranslation } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/auth-context";
@@ -182,12 +182,6 @@ const normalizeUserConjugation = (value: string): string => {
     .trim();
 };
 
-const formatVerbTranslation = (translation: string | null): string | null => {
-  if (!translation) return null;
-  const normalized = translation.replace(/^to\s+/i, "").trim().toLowerCase();
-  if (!normalized) return null;
-  return `to ${normalized}`;
-};
 
 export function ConjugationPractice({
   onNextQuestion,
@@ -1203,6 +1197,9 @@ export function ConjugationPractice({
   const currentVerbTranslation = currentQuestion
     ? getVerbTranslationEn(currentQuestion.verb)
     : null;
+  if (process.env.NODE_ENV !== "production" && currentQuestion && !currentVerbTranslation) {
+    console.warn(`Missing English translation for verb: ${currentQuestion.verb}`);
+  }
   const formattedVerbTranslation = formatVerbTranslation(currentVerbTranslation);
 
   return (
@@ -1478,7 +1475,7 @@ export function ConjugationPractice({
                 color: "rgba(11,16,32,0.7)",
               }}
             >
-              {lossVerb}
+              {lossVerb} ({formatVerbTranslation(getVerbTranslationEn(lossVerb))})
               {' · '}
               {lossTense}
             </p>
@@ -1765,14 +1762,12 @@ export function ConjugationPractice({
                 }}
               >
                 {currentQuestion.verb}
-                {formattedVerbTranslation ? (
-                  <span
-                    className="mt-1 block px-2 text-sm sm:text-base font-semibold text-slate-500"
-                    style={{ overflowWrap: "anywhere", lineHeight: 1.35 }}
-                  >
-                    ({formattedVerbTranslation})
-                  </span>
-                ) : null}
+                <span
+                  className="mt-1 block px-2 text-sm sm:text-base font-semibold text-slate-500"
+                  style={{ overflowWrap: "anywhere", lineHeight: 1.35 }}
+                >
+                  ({formattedVerbTranslation})
+                </span>
               </CardTitle>
               <CardDescription className="text-center">
                 <Badge
