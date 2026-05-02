@@ -24,9 +24,24 @@ export function buildWhatsAppInvite(friendCode: string): string {
   return `https://wa.me/?text=${message}`;
 }
 
-export function formatVerbTranslation(translation?: string | null): string {
+import { type AppLanguage } from "@/lib/i18n";
+import { type LocalizedTranslation } from "@/lib/verbs";
+
+export function formatVerbTranslation(
+  translation: LocalizedTranslation | string | undefined | null,
+  language: AppLanguage
+): string {
   if (!translation) return "translation unavailable";
-  const clean = translation.trim();
-  if (clean.toLowerCase().startsWith("to ")) return clean;
-  return `to ${clean}`;
+
+  const raw = typeof translation === "string" ? translation : translation[language];
+  if (!raw) return "translation unavailable";
+
+  const clean = raw.trim();
+  if (!clean) return "translation unavailable";
+
+  if (language === "en") {
+    return clean.toLowerCase().startsWith("to ") ? clean : `to ${clean}`;
+  }
+
+  return clean;
 }

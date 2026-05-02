@@ -12,7 +12,13 @@ export type VerbData = {
 
 type RawConjugationEntry = {
   translation_en?: string;
+  translation_es?: string;
   moods?: Record<string, Record<string, string>>;
+};
+
+export type LocalizedTranslation = {
+  en: string;
+  es: string;
 };
 
 const SOURCE_TO_APP_TENSE: Record<string, string> = {
@@ -105,14 +111,18 @@ export const verbData: VerbData = buildVerbDataFromSource(
   sourceConjugations as Record<string, RawConjugationEntry>
 );
 
-export const verbTranslationsEn: Record<string, string> = Object.fromEntries(
-  Object.entries(sourceConjugations as Record<string, RawConjugationEntry>)
-    .map(([verb, payload]) => [verb, payload.translation_en?.trim() ?? ""])
-    .filter(([, translation]) => translation.length > 0)
+export const verbTranslations: Record<string, LocalizedTranslation> = Object.fromEntries(
+  Object.entries(sourceConjugations as Record<string, RawConjugationEntry>).map(([verb, payload]) => [
+    verb,
+    {
+      en: payload.translation_en?.trim() ?? "",
+      es: payload.translation_es?.trim() ?? "",
+    },
+  ])
 );
 
-export function getVerbTranslationEn(verb: string): string | null {
-  return verbTranslationsEn[verb] ?? null;
+export function getVerbTranslation(verb: string): LocalizedTranslation | null {
+  return verbTranslations[verb] ?? null;
 }
 
 const rules: Record<string, Record<string, string>> = {
